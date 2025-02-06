@@ -8,18 +8,18 @@ class mnist_vae(nn.Module):
         self.device = device
 
         # Activation Functions
-        relu = nn.ReLU()
-        sig = nn.Sigmoid()
+        self.relu = nn.ReLU()
+        self.sig = nn.Sigmoid()
 
         # Encoder 
         self.fc1_enc = nn.Linear(28*28, 256)
-        self.fc2_enc = nn.Linear(256, 128)
-        self.fc3_enc_mean = nn.Linear(128, latent_dim)
-        self.fc3_enc_logvar = nn.Linear(128, latent_dim)
+        # self.fc2_enc = nn.Linear(256, 128)
+        self.fc3_enc_mean = nn.Linear(256, latent_dim)
+        self.fc3_enc_logvar = nn.Linear(256, latent_dim)
 
         # Decoder
-        self.fc1_dec = nn.Linear(latent_dim,128)
-        self.fc2_dec = nn.Linear(128, 256)
+        self.fc1_dec = nn.Linear(latent_dim,256)
+        # self.fc2_dec = nn.Linear(128, 256)
         self.fc3_dec = nn.Linear(256, 28*28)
 
     def forward(self, x):
@@ -29,10 +29,10 @@ class mnist_vae(nn.Module):
 
     def encode(self, x):
         x = self.relu(self.fc1_enc(x))
-        x = self.relu(self.fc2_enc(x))
+        # x = self.relu(self.fc2_enc(x))
 
-        x_mu = self.relu(self.fc3_enc_mean(x))
-        x_logvar = self.relu(self.fc3_enc_logvar(x))
+        x_mu = self.fc3_enc_mean(x)
+        x_logvar = self.fc3_enc_logvar(x)
 
         reparam_z = self.reparametrisation(x_mu, x_logvar)
 
@@ -40,7 +40,7 @@ class mnist_vae(nn.Module):
 
     def decode(self, z):
         z = self.relu(self.fc1_dec(z))
-        z = self.relu(self.fc2_dec(z))
+        # z = self.relu(self.fc2_dec(z))
         z = self.sig(self.fc3_dec(z))
 
         return z
