@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
 
-class mnist_vae(nn.Module):
-    def __init__(self, latent_dim, device):
+class basic_vae(nn.Module):
+    def __init__(self, latent_dim,  input_dimension, device):
         super().__init__()
+        self.input_dim = input_dimension
         self.latent_dim = latent_dim
         self.device = device
 
@@ -12,15 +13,15 @@ class mnist_vae(nn.Module):
         self.sig = nn.Sigmoid()
 
         # Encoder 
-        self.fc1_enc = nn.Linear(28*28, 256)
+        self.fc1_enc = nn.Linear(input_dimension, 512)
         # self.fc2_enc = nn.Linear(256, 128)
-        self.fc3_enc_mean = nn.Linear(256, latent_dim)
-        self.fc3_enc_logvar = nn.Linear(256, latent_dim)
+        self.fc3_enc_mean = nn.Linear(512, latent_dim)
+        self.fc3_enc_logvar = nn.Linear(512, latent_dim)
 
         # Decoder
-        self.fc1_dec = nn.Linear(latent_dim,256)
+        self.fc1_dec = nn.Linear(latent_dim,512)
         # self.fc2_dec = nn.Linear(128, 256)
-        self.fc3_dec = nn.Linear(256, 28*28)
+        self.fc3_dec = nn.Linear(512, input_dimension)
 
     def forward(self, x):
         reparam_z, x_mu, x_logvar = self.encode(x)
