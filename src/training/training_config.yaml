@@ -1,0 +1,56 @@
+
+# Basic VAE uses one-hot encoded values of protein sequences
+basic_vae:
+# Experiments to see how the latent dimension affects the reconstruction
+  latent_exp:
+    exp_1:
+      model: BasicVAE_exp_1
+      dataset: 'ProteinLigand'
+      data_type: 'point'
+      batch_size: 128
+      epochs: 200
+      optimizer: adamw
+      optimizer_param:
+          lr: 0.001
+      latent_dim: 256
+      hidden_dims: 512
+      seed: 42
+
+    exp_2:
+      model: BasicVAE_exp_2
+      batch_size: 64
+      epochs: 200
+      optimizer: adam
+      optimizer_param:
+          lr: 0.001
+      latent_dim: 128
+      hidden_dims: 512
+      seed: 42
+
+    exp_3:
+      model: BasicVAE_exp_3
+      batch_size: 64
+      epochs: 200
+      optimizer: adam
+      optimizer_param:
+          lr: 0.001
+      latent_dim: 64
+      hidden_dims: 512
+      seed: 42
+
+    exp_4:
+      model: BasicVAE_exp_4
+      batch_size: 64
+      epochs: 200
+      optimizer: adam
+      optimizer_param:
+          lr: 0.001
+      latent_dim: 2
+      hidden_dims: 512
+      seed: 42
+
+PointNetVAE:
+
+GraphVAE:
+  
+
