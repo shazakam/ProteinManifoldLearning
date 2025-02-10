@@ -10,3 +10,7 @@ data/
 datasets/
 
 logs/
+
+trained_models/
+
+training_logs/
