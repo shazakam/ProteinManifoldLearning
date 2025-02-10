@@ -1,13 +1,14 @@
 import yaml
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset, Subset
 from ..models.basicVae import LitBasicVae 
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from ..dataset_classes.sequenceDataset import *
 import pytorch_lightning as pl
-from proteinshake.datasets import ProteinLigandInterfaceDataset, AlphaFoldDataset
+from proteinshake.datasets import ProteinLigandInterfaceDataset, AlphaFoldDataset, GeneOntologyDataset
 import sys
+import random
 
 # Load config
 def load_config(config_file="config.yaml"):
@@ -44,13 +45,28 @@ if __name__ == "__main__":
     if exp_config['dataset'] == 'ProteinLigand':
         if exp_config['data_type'] == 'point':
             dataset = ProteinLigandInterfaceDataset(root='data').to_point().torch()
+    elif exp_config['dataset'] == 'AlphaFold':
+        if exp_config['data_type'] == 'point':
+            dataset = AlphaFoldDataset(root='data').to_point().torch()
+    elif exp_config['dataset'] == 'GO':
+        if exp_config['data_type'] =='point':
+            dataset = GeneOntologyDataset(root='data').to_point().torch()
     else:
         print('Other datasets not used at the moment, TODO: change config file and implement ')
         sys.exit()
 
-    seq_test_data = SequenceDataset(dataset)
-    seq_train_dataloader = DataLoader(seq_test_data, batch_size=exp_config['batch_size'], shuffle=False)
-    x_dim = seq_test_data[0].shape[0] # Input Dimensionality of data points
+    max_seq_len = exp_config['max_seq_len']
+    idx_list = range(len(dataset))
+    subset_size = int(len(dataset)//10)
+    val_idx = random.sample(idx_list, subset_size)  # Get random subset
+    train_idx = list(set(idx_list) - set(val_idx))
+
+    # Create data subsets
+    train_subset = SequenceDataset(Subset(dataset, train_idx), max_seq_len)
+    val_subset = SequenceDataset(Subset(dataset, val_idx), max_seq_len)
+    seq_train_dataloader = DataLoader(train_subset, batch_size=exp_config['batch_size'], shuffle=False)
+    seq_val_dataloader = DataLoader(val_subset, batch_size=exp_config['batch_size'], shuffle=False)
+    x_dim = train_subset[0].shape[0] # Input Dimensionality of data points
 
     # Model Checkpoints and saving
     checkpoint_callback = ModelCheckpoint(

@@ -5,16 +5,17 @@ basic_vae:
   latent_exp:
     exp_1:
       model: BasicVAE_exp_1
-      dataset: 'ProteinLigand'
+      dataset: 'GO'
       data_type: 'point'
       batch_size: 128
       epochs: 200
-      optimizer: adamw
+      optimizer: adam
       optimizer_param:
           lr: 0.001
       latent_dim: 256
       hidden_dims: 512
       seed: 42
+      max_seq_len: 2046
 
     exp_2:
       model: BasicVAE_exp_2

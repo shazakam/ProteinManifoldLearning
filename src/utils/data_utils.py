@@ -2,6 +2,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
+from tqdm import tqdm
 
 def get_dataset_seq_lengths(dataset, leq):
     length_dict = dict()
@@ -26,7 +27,7 @@ def get_subset_leq_len(dataset, leq):
 
 def get_max_seq_len(dataset):
     max_len = 0
-    for sample in dataset:
+    for sample in tqdm(dataset):
         seq_leng = len(sample[1]['protein']['sequence'])
         if seq_leng > max_len:
             max_len = seq_leng
@@ -54,7 +55,7 @@ def one_hot_encode_seq(seq, max_seq_len, convert_to_tensor=True):
 def make_one_hot_data_list(dataset, max_seq_len):
     one_hot_dataset = []
     proteins = []
-    for sample in dataset:
+    for sample in tqdm(dataset):
         proteins.append(sample)
         one_hot_seq = one_hot_encode_seq(sample[1]['protein']['sequence'], max_seq_len)
         one_hot_seq = one_hot_seq.flatten()

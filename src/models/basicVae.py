@@ -20,7 +20,7 @@ class LitBasicVae(pl.LightningModule):
         self.latent_dim = latent_dim
         self.optimizer = optimizer
         self.optimizer_param = optimizer_param
-        self.automatic_optimization = False
+        # self.automatic_optimization = False
 
         # Activation Functions
         self.relu = nn.ReLU()
@@ -144,10 +144,10 @@ class LitBasicVae(pl.LightningModule):
         rep_z, x_mu, x_logvar, x_rec = self(x)
         loss = self.ELBO(x, x_rec,x_mu, x_logvar)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        opt = self.optimizers()
-        opt.zero_grad()
-        self.manual_backward(loss)
-        opt.step()
+        # opt = self.optimizers()
+        # opt.zero_grad()
+        # self.manual_backward(loss)
+        # opt.step()
         return loss
     
     def validation_step(self, batch, batch_idx):
@@ -174,5 +174,5 @@ class LitBasicVae(pl.LightningModule):
         Returns:
             torch.optim.Optimizer: Optimizer.
         """
-        return self.optimizer(self.parameters(), **self.optimizer_param)
+        return  self.optimizer(self.parameters(), **self.optimizer_param)
 

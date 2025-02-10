@@ -5,7 +5,7 @@ from src.utils.data_utils import *
 class SequenceDataset(Dataset):
     """One Hot Encoded Sequence dataset."""
 
-    def __init__(self, protein_shake_dataset):
+    def __init__(self, protein_shake_dataset, max_seq_len):
         """
         Arguments:
             csv_file (string): Path to the csv file with annotations.
@@ -14,7 +14,7 @@ class SequenceDataset(Dataset):
                 on a sample.
         """
         self.protein_shake_dataset = protein_shake_dataset
-        self.max_seq_len = get_max_seq_len(self.protein_shake_dataset)
+        self.max_seq_len = max_seq_len
         self.enc_seq, self.org_protein_data = make_one_hot_data_list(self.protein_shake_dataset, self.max_seq_len)
 
     def __len__(self):
