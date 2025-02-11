@@ -144,6 +144,7 @@ class LitBasicVae(pl.LightningModule):
         rep_z, x_mu, x_logvar, x_rec = self(x)
         loss = self.ELBO(x, x_rec,x_mu, x_logvar)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("learning_rate", self.trainer.optimizers[0].param_groups[0]['lr'], prog_bar=True)
         # opt = self.optimizers()
         # opt.zero_grad()
         # self.manual_backward(loss)
@@ -174,5 +175,25 @@ class LitBasicVae(pl.LightningModule):
         Returns:
             torch.optim.Optimizer: Optimizer.
         """
-        return  self.optimizer(self.parameters(), **self.optimizer_param)
+
+        optimizer = self.optimizer(self.parameters(), **self.optimizer_param)
+
+        # 🔹 Using ReduceLROnPlateau
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+
+
+        return  {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "train_loss_epoch",  # Reduce LR based on training loss
+                "interval": "epoch",  # Step every epoch
+                "frequency": 1,  
+            }
+        }
+    
+    def on_train_epoch_end(self):
+        for name, param in self.named_parameters():
+            if param.requires_grad:
+                self.logger.experiment.add_histogram(f"weights/{name}", param, self.current_epoch)
 

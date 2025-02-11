@@ -7,48 +7,57 @@ basic_vae:
       model: BasicVAE_exp_1
       dataset: 'GO'
       data_type: 'point'
-      batch_size: 128
+      batch_size: 256
       epochs: 200
-      optimizer: adam
+      optimizer: adamw
       optimizer_param:
           lr: 0.001
       latent_dim: 256
-      hidden_dims: 512
+      hidden_dims: 1024
       seed: 42
       max_seq_len: 2046
 
     exp_2:
       model: BasicVAE_exp_2
-      batch_size: 64
+      dataset: 'GO'
+      data_type: 'point'
+      batch_size: 256
       epochs: 200
-      optimizer: adam
+      optimizer: adamw
       optimizer_param:
           lr: 0.001
       latent_dim: 128
-      hidden_dims: 512
+      hidden_dims: 1024
       seed: 42
+      max_seq_len: 2046
 
     exp_3:
       model: BasicVAE_exp_3
-      batch_size: 64
+      dataset: 'GO'
+      data_type: 'point'
+      batch_size: 256
       epochs: 200
-      optimizer: adam
+      optimizer: adamw
       optimizer_param:
           lr: 0.001
       latent_dim: 64
-      hidden_dims: 512
+      hidden_dims: 1024
       seed: 42
+      max_seq_len: 2046
 
     exp_4:
       model: BasicVAE_exp_4
-      batch_size: 64
+      dataset: 'GO'
+      data_type: 'point'
+      batch_size: 256
       epochs: 200
-      optimizer: adam
+      optimizer: adamw
       optimizer_param:
           lr: 0.001
       latent_dim: 2
-      hidden_dims: 512
+      hidden_dims: 1024
       seed: 42
+      max_seq_len: 2046
 
 PointNetVAE:
 
