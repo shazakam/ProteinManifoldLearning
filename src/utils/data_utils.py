@@ -56,10 +56,13 @@ def make_one_hot_data_list(dataset, max_seq_len):
     one_hot_dataset = []
     proteins = []
     for sample in tqdm(dataset):
-        proteins.append(sample)
-        one_hot_seq = one_hot_encode_seq(sample[1]['protein']['sequence'], max_seq_len)
-        one_hot_seq = one_hot_seq.flatten()
-        one_hot_dataset.append(one_hot_seq)
+        if len(sample[1]['protein']['sequence']) > max_seq_len:
+            continue
+        else:
+            proteins.append(sample)
+            one_hot_seq = one_hot_encode_seq(sample[1]['protein']['sequence'], max_seq_len)
+            one_hot_seq = one_hot_seq.flatten()
+            one_hot_dataset.append(one_hot_seq)
     return one_hot_dataset, proteins
 
 

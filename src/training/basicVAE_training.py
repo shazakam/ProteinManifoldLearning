@@ -92,7 +92,7 @@ if __name__ == "__main__":
         log_every_n_steps = 50
         )
     
-    # Initialise Optimizer, Optimizer, Model anad begin training
+    # Initialise Optimizer, Model anad begin training
     optimizer = get_optimizer(exp_config['optimizer'])
     optimzer_param = exp_config['optimizer_param']
     model = LitBasicVae(exp_config['latent_dim'], x_dim,optimizer, optimzer_param, exp_config['hidden_dims'])
