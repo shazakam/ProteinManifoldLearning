@@ -38,28 +38,34 @@ def one_hot_encode_seq(seq, max_seq_len, transformer_input = False, convert_to_t
     amino_encoding_dict = {'S': 0,'Y': 1,'F': 2,'K': 3,'V': 4,'C': 5,
                             'A': 6,'H': 7,'T': 8,'I': 9,'W': 10,'R': 11,
                             'P': 12,'L': 13,'G': 14,'N': 15,'E': 16,
-                            'Q': 17,'M': 18,'D': 19}
+                            'Q': 17,'M': 18,'D': 19, 'X':20}
     
     one_hot_list = []
-    for char in seq:
-        one_hot = np.zeros(20)
-        one_hot[amino_encoding_dict[char]] = 1
-        one_hot_list.append(one_hot)
 
-    # Padd Sequence with zeros if not long enough
-    encoded_array = np.array(one_hot_list)
-    padded_array = np.pad(encoded_array, pad_width=((0, max_seq_len - encoded_array.shape[0]), (0, 0)), mode='constant', constant_values=0)
-
-    # Check to see if the input is to be used in a transformer encoder
     if not transformer_input:
+        seq = seq+(max_seq_len-len(seq))*'X'
 
-        # Flatten array for MLP input, convert to tensor #TODO: Just get rid of the np implementation at some point
-        if convert_to_tensor:
-            return torch.tensor(padded_array).float().flatten().view(1,-1)
-        else:
-            return padded_array.flatten().reshape(1,-1)
-        
+        for char in seq:
+            one_hot = np.zeros(21)
+            one_hot[amino_encoding_dict[char]] = 1
+            one_hot_list.append(one_hot)
+        return torch.tensor(np.array(one_hot_list),dtype=torch.float32)
     else:
+
+        # Padd Sequence with zeros if not long enough
+        encoded_array = np.array(one_hot_list)
+        padded_array = np.pad(encoded_array, pad_width=((0, max_seq_len - encoded_array.shape[0]), (0, 0)), mode='constant', constant_values=0)
+
+        # # Check to see if the input is to be used in a transformer encoder
+        # if not transformer_input:
+
+        #     # Flatten array for MLP input, convert to tensor #TODO: Just get rid of the np implementation at some point
+        #     if convert_to_tensor:
+        #         return torch.tensor(padded_array).float().flatten().view(1,-1)
+        #     else:
+        #         return padded_array.flatten().reshape(1,-1)
+            
+        # else:
         return torch.tensor(padded_array, dtype=torch.float32)
     
 
@@ -75,6 +81,7 @@ def make_one_hot_data_list(dataset, max_seq_len, transformer_input):
         else:
             proteins.append(sample)
             one_hot_seq = one_hot_encode_seq(sample[1]['protein']['sequence'], max_seq_len, transformer_input)
+            # one_hot_seq = one_hot_seq.flatten()
             one_hot_dataset.append(one_hot_seq)
 
     return one_hot_dataset, proteins

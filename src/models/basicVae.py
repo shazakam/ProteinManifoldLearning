@@ -3,7 +3,7 @@ import torch.nn as nn
 import pytorch_lightning as pl
 
 class LitBasicVae(pl.LightningModule):
-    def __init__(self, latent_dim,  input_dimension, optimizer, optimizer_param, hidden_dim=512):
+    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512):
         """
         Initialize the BasicVae model.
 
@@ -16,10 +16,12 @@ class LitBasicVae(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.hidden_dim = hidden_dim
-        self.input_dim = input_dimension
         self.latent_dim = latent_dim
         self.optimizer = optimizer
         self.optimizer_param = optimizer_param
+        self.seq_len = seq_len
+        self.amino_acids = amino_acids
+        self.input_dim = self.amino_acids*self.seq_len
         # self.automatic_optimization = False
 
         # Activation Functions
@@ -27,13 +29,13 @@ class LitBasicVae(pl.LightningModule):
         self.soft = nn.Softmax()
 
         # Encoder 
-        self.fc1_enc = nn.Linear(input_dimension, self.hidden_dim)
+        self.fc1_enc = nn.Linear(self.input_dim, self.hidden_dim)
         self.fc3_enc_mean = nn.Linear(self.hidden_dim, latent_dim)
         self.fc3_enc_logvar = nn.Linear(self.hidden_dim, latent_dim)
 
         # Decoder
         self.fc1_dec = nn.Linear(latent_dim,self.hidden_dim)
-        self.fc3_dec = nn.Linear(self.hidden_dim, input_dimension)
+        self.fc3_dec = nn.Linear(self.hidden_dim, self.input_dim)
 
     def forward(self, x):
         """
@@ -46,8 +48,8 @@ class LitBasicVae(pl.LightningModule):
             tuple: Reparameterized latent vector, mean, log variance, and reconstructed input.
         """
         reparam_z, x_mu, x_logvar = self.encode(x)
-        x_rec = self.decode(reparam_z)
-        return reparam_z, x_mu, x_logvar, x_rec
+        x_rec, logit = self.decode(reparam_z)
+        return reparam_z, x_mu, x_logvar, x_rec, logit
 
     def encode(self, x):
         """
@@ -77,9 +79,9 @@ class LitBasicVae(pl.LightningModule):
             torch.Tensor: Reconstructed input.
         """
         z = self.relu(self.fc1_dec(z))
-        z = self.soft(self.fc3_dec(z))
-
-        return z
+        logit = self.fc3_dec(z)
+        z = self.soft(logit)
+        return z, logit
 
     def reparametrisation(self, x_mu, x_logvar):
         """
@@ -97,21 +99,8 @@ class LitBasicVae(pl.LightningModule):
         z_new = x_mu + eps*(std)
 
         return z_new
-
-    # def generate_n_samples(self, n):
-    #     """
-    #     Generate n samples from the latent space.
-
-    #     Args:
-    #         n (int): Number of samples to generate.
-
-    #     Returns:
-    #         torch.Tensor: Generated samples.
-    #     """
-    #     z = torch.randn(n, self.z_dim) #.to(self.device)
-    #     return self.decode(z)
     
-    def ELBO(self, x, x_hat,x_mu, x_logvar):
+    def ELBO(self, x, logit, x_mu, x_logvar):
         """
         Compute the Evidence Lower Bound (ELBO) loss.
 
@@ -124,7 +113,18 @@ class LitBasicVae(pl.LightningModule):
         Returns:
             torch.Tensor: ELBO loss.
         """
-        rec_loss =  torch.nn.functional.mse_loss(x_hat, x, reduction='sum')
+        x = x.reshape(-1,self.seq_len,self.amino_acids)
+        logit = logit.reshape(-1,self.seq_len,self.amino_acids)
+        x_true_indices = x.argmax(dim=-1)
+        rec_loss =  torch.nn.functional.cross_entropy(logit.permute(0,2,1),x_true_indices, reduction='sum')
+
+        # rec_loss =  torch.nn.functional.binary_cross_entropy(x_hat, x, reduction='sum')
+        # x_true_indices = x.argmax(dim=-1)
+        # print(x_hat.shape)
+        # print(x_true_indices.shape)
+        # rec_loss = torch.nn.functional.cross_entropy(x_hat, x_true_indices, reduction='sum')
+        # rec_loss = torch.nn.functional.mse_loss(x_hat,x,reduction = 'sum')
+        
         KL_loss = -0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp())
 
         return (rec_loss + KL_loss) / x.size(0) 
@@ -140,15 +140,13 @@ class LitBasicVae(pl.LightningModule):
         Returns:
             torch.Tensor: Training loss.
         """
-        x = batch[0].view(-1, self.input_dim)
-        rep_z, x_mu, x_logvar, x_rec = self(x)
-        loss = self.ELBO(x, x_rec,x_mu, x_logvar)
+        x = batch.view(-1,self.input_dim)
+
+        rep_z, x_mu, x_logvar, x_rec, logit = self(x)
+        loss = self.ELBO(x, logit, x_mu, x_logvar)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log("learning_rate", self.trainer.optimizers[0].param_groups[0]['lr'], prog_bar=True)
-        # opt = self.optimizers()
-        # opt.zero_grad()
-        # self.manual_backward(loss)
-        # opt.step()
+     
         return loss
     
     def validation_step(self, batch, batch_idx):
@@ -162,9 +160,10 @@ class LitBasicVae(pl.LightningModule):
         Returns:
             torch.Tensor: Validation loss.
         """
-        x = batch[0].view(-1, self.input_dim)
-        rep_z, x_mu, x_logvar, x_rec = self(x)
-        loss = self.ELBO(x, x_rec,x_mu, x_logvar)
+        # NOTE TO SELF CHANGE THIS TO FIT PROTEIN IMPLEMENTATION
+        x = batch.view(-1,self.input_dim)
+        rep_z, x_mu, x_logvar, x_rec, logit = self(x)
+        loss = self.ELBO(x, logit,x_mu, x_logvar)
         self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
     

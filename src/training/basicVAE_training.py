@@ -66,6 +66,8 @@ if __name__ == "__main__":
     val_subset = SequenceDataset(Subset(dataset, val_idx), max_seq_len)
     seq_train_dataloader = DataLoader(train_subset, batch_size=exp_config['batch_size'], shuffle=False)
     seq_val_dataloader = DataLoader(val_subset, batch_size=exp_config['batch_size'], shuffle=False)
+
+    # Potentially redundant now
     x_dim = train_subset[0].shape[0] # Input Dimensionality of data points
 
     # Model Checkpoints and saving
@@ -95,7 +97,7 @@ if __name__ == "__main__":
     # Initialise Optimizer, Model anad begin training
     optimizer = get_optimizer(exp_config['optimizer'])
     optimzer_param = exp_config['optimizer_param']
-    model = LitBasicVae(exp_config['latent_dim'], x_dim,optimizer, optimzer_param, exp_config['hidden_dims'])
+    model = LitBasicVae(exp_config['latent_dim'], optimizer, optimzer_param, max_seq_len, 21, exp_config['hidden_dims'])
     trainer.fit(model, seq_train_dataloader, seq_val_dataloader)
 
 
