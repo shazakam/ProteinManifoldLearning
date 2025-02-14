@@ -7,7 +7,7 @@ import math
 # TODO: CITE Relevant PyTorch Documentation for Attention Encoder Implementation
 
 class AttentionVAE(pl.LightningModule):
-    def __init__(self, N_layers, embed_dim, hidden_dim, num_heads, dropout, latent_dim):
+    def __init__(self, N_layers, embed_dim, hidden_dim, num_heads, dropout, latent_dim, seq_len):
         super().__init__()
         self.N_layers = N_layers
         self.embed_dim = embed_dim
@@ -15,13 +15,28 @@ class AttentionVAE(pl.LightningModule):
         self.num_heads = num_heads
         self.dropout = dropout
         self.latent_dim = latent_dim
+        self.seq_len = seq_len
 
-        # Encoders
+        # Encoder
         self.pos_encoder = PositionalEncoding(embed_dim=embed_dim,dropout=dropout)
         self.attention_encoders = nn.ModuleList([AttentionEncoderBlock(embed_dim=embed_dim,num_heads=num_heads,dropout=dropout, hidden_dim=hidden_dim) for i in range(N_layers)])
-        self.forward_latent_layer = nn.Linear(embed_dim,latent_dim)
+        self.global_forward_layer = nn.Sequential(nn.Linear(embed_dim, 1),
+                                            nn.Softmax(dim=1))
+        self.forward_latent_mean_layer = nn.Linear(embed_dim,latent_dim)
+        self.forward_latent_logvar_layer = nn.Linear(embed_dim,latent_dim)
+
 
         # Decoder
+        self.ffw_decoder = nn.Linear(latent_dim, seq_len*(hidden_dim//2))
+
+        self.conv_block_decoder = nn.Sequential(
+                    nn.Conv1d(in_channels=hidden_dim//2, out_channels=hidden_dim, kernel_size=3, padding=1, stride=1, bias=False),
+                    nn.BatchNorm1d(hidden_dim),
+                    nn.ReLU(),
+                    nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1, stride=1, bias=False),
+                    nn.BatchNorm1d(hidden_dim))
+        
+        self.upsampling_conv_decoder = nn.Conv1d(hidden_dim,20, kernel_size=3, padding=1)
 
 
 
@@ -36,7 +51,6 @@ class AttentionVAE(pl.LightningModule):
                 tuple: Reparameterized latent vector, mean, log variance, and reconstructed input.
             """
 
-
             reparam_z, x_mu, x_logvar = self.encode(x)
             x_rec = self.decode(reparam_z)
             return reparam_z, x_mu, x_logvar, x_rec
@@ -50,8 +64,22 @@ class AttentionVAE(pl.LightningModule):
 
         Returns:
             tuple: Reparameterized latent vector, mean, and log variance.
+        
         """
-        return 
+        padding_mask = (x.sum(dim=-1) == 0).bool()  
+        x = self.pos_encoder(x)
+
+        for attention_enc in self.attention_encoders:
+            x = attention_enc(x, key_mask = padding_mask)
+
+        global_att = self.global_forward_layer(x)
+        x = torch.bmm(global_att.transpose(-1, 1), x).squeeze()
+        x_mu = self.forward_latent_mean_layer(x)
+        x_logvar = self.forward_latent_logvar_layer(x)
+        reparam_z = self.reparametrisation(x_mu, x_logvar)
+
+        return reparam_z, x_mu, x_logvar
+    
     def decode(self, z):
         """
         Decode the latent vector back to the input space.
@@ -62,8 +90,12 @@ class AttentionVAE(pl.LightningModule):
         Returns:
             torch.Tensor: Reconstructed input.
         """
-
-        return 
+        z = self.ffw_decoder(z)
+        z = z.reshape(-1, self.hidden_dim//2, self.seq_len)
+        z = self.conv_block_decoder(z)
+        z = self.upsampling_conv_decoder(z)
+        z = z.permute(0,2,1)
+        return z 
 
     def reparametrisation(self, x_mu, x_logvar):
         """
@@ -82,18 +114,18 @@ class AttentionVAE(pl.LightningModule):
 
         return z_new
 
-    def generate_n_samples(self, n):
-        """
-        Generate n samples from the latent space.
+    # def generate_n_samples(self, n):
+    #     """
+    #     Generate n samples from the latent space.
 
-        Args:
-            n (int): Number of samples to generate.
+    #     Args:
+    #         n (int): Number of samples to generate.
 
-        Returns:
-            torch.Tensor: Generated samples.
-        """
-        z = torch.randn(n, self.z_dim)
-        return self.decode(z)
+    #     Returns:
+    #         torch.Tensor: Generated samples.
+    #     """
+    #     z = torch.randn(n, self.z_dim)
+    #     return self.decode(z)
     
     # TODO: Add ELBO to data_utils for ease of use
     def ELBO(self, x, x_hat,x_mu, x_logvar):
@@ -191,13 +223,11 @@ class AttentionEncoderBlock(nn.Module):
         # Fully Connected Feed Forward layers and Layer Norms as described by "Attention is All You need"
         self.feedforward_sublayer = FeedForwardEncoderSubLayer(embed_dim,hidden_dim, dropout)
     
-    def forward(self, x):
-
-        # Ignore Padded Tokens
-        key_mask = (x.sum(dim=-1) == 0).bool()  
+    def forward(self, x, key_mask):
 
         # Multihead Attention and Add+Layer Norm 
-        x , _ = x + self.dropout(self.attention(x, x, x, key_padding_mask = key_mask))
+        attention_out, _ = self.attention(x, x, x, key_padding_mask = key_mask, need_weights = False)
+        x = x + self.dropout(attention_out)
         x = self.layer_norm(x)
 
         # FeedForward

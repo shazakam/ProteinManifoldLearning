@@ -24,7 +24,7 @@ class LitBasicVae(pl.LightningModule):
 
         # Activation Functions
         self.relu = nn.ReLU()
-        self.sig = nn.Sigmoid()
+        self.soft = nn.Softmax()
 
         # Encoder 
         self.fc1_enc = nn.Linear(input_dimension, self.hidden_dim)
@@ -77,7 +77,7 @@ class LitBasicVae(pl.LightningModule):
             torch.Tensor: Reconstructed input.
         """
         z = self.relu(self.fc1_dec(z))
-        z = self.sig(self.fc3_dec(z))
+        z = self.soft(self.fc3_dec(z))
 
         return z
 
@@ -98,18 +98,18 @@ class LitBasicVae(pl.LightningModule):
 
         return z_new
 
-    def generate_n_samples(self, n):
-        """
-        Generate n samples from the latent space.
+    # def generate_n_samples(self, n):
+    #     """
+    #     Generate n samples from the latent space.
 
-        Args:
-            n (int): Number of samples to generate.
+    #     Args:
+    #         n (int): Number of samples to generate.
 
-        Returns:
-            torch.Tensor: Generated samples.
-        """
-        z = torch.randn(n, self.z_dim) #.to(self.device)
-        return self.decode(z)
+    #     Returns:
+    #         torch.Tensor: Generated samples.
+    #     """
+    #     z = torch.randn(n, self.z_dim) #.to(self.device)
+    #     return self.decode(z)
     
     def ELBO(self, x, x_hat,x_mu, x_logvar):
         """
