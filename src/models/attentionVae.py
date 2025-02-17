@@ -7,7 +7,7 @@ import math
 # TODO: CITE Relevant PyTorch Documentation for Attention Encoder Implementation
 
 class AttentionVAE(pl.LightningModule):
-    def __init__(self, device, optimizer, optimizer_param, N_layers, embed_dim, hidden_dim, num_heads, dropout, latent_dim, seq_len, amino_acids = 20):
+    def __init__(self, optimizer, optimizer_param, N_layers, embed_dim, hidden_dim, num_heads, dropout, latent_dim, seq_len):
         super().__init__()
         self.optimizer = optimizer
         self.optimizer_param = optimizer_param
@@ -18,11 +18,10 @@ class AttentionVAE(pl.LightningModule):
         self.dropout = dropout
         self.latent_dim = latent_dim
         self.seq_len = seq_len
-        self.amino_acids = amino_acids
         self.save_hyperparameters()
 
         # Encoder
-        self.pos_encoder = PositionalEncoding(device=device, embed_dim=embed_dim,dropout=dropout)
+        self.pos_encoder = PositionalEncoding(device=self.device, embed_dim=embed_dim,dropout=dropout)
         self.attention_encoders = nn.ModuleList([AttentionEncoderBlock(embed_dim=embed_dim,num_heads=num_heads,dropout=dropout, hidden_dim=hidden_dim) for i in range(N_layers)])
         self.global_forward_layer = nn.Sequential(nn.Linear(embed_dim, 1),
                                             nn.Softmax(dim=1))
@@ -135,8 +134,8 @@ class AttentionVAE(pl.LightningModule):
         Returns:
             torch.Tensor: ELBO loss.
         """
-        x = x.reshape(-1,self.seq_len,self.amino_acids)
-        logit = logit.reshape(-1,self.seq_len,self.amino_acids)
+        x = x.reshape(-1,self.seq_len,self.embed_dim)
+        logit = logit.reshape(-1,self.seq_len,self.embed_dim)
         x_true_indices = x.argmax(dim=-1)
         rec_loss =  torch.nn.functional.cross_entropy(logit.permute(0,2,1),x_true_indices, reduction='sum')
 
@@ -183,9 +182,9 @@ class AttentionVAE(pl.LightningModule):
         Returns:
             torch.Tensor: Validation loss.
         """
-        x = batch[0].view(-1, self.input_dim)
-        rep_z, x_mu, x_logvar, x_rec = self(x)
-        loss = self.ELBO(x, x_rec,x_mu, x_logvar)
+        x = batch
+        rep_z, x_mu, x_logvar, x_rec, logit = self(x)
+        loss = self.ELBO(x, logit ,x_mu, x_logvar)
         self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
@@ -215,6 +214,9 @@ class AttentionVAE(pl.LightningModule):
 
     def on_train_epoch_end(self):
         return super().validation_step()
+    
+    def on_fit_start(self):
+        self.pos_encoder.device = self.device
     
 class AttentionEncoderBlock(nn.Module):
     def __init__(self, embed_dim, num_heads, dropout, hidden_dim):
@@ -267,8 +269,8 @@ class PositionalEncoding(nn.Module):
 
     def __init__(self, device, embed_dim: int, dropout: float = 0.1, max_len: int = 5000):
         super().__init__()
-        self.dropout = nn.Dropout(p=dropout)
         self.device = device
+        self.dropout = nn.Dropout(p=dropout)
 
         position = torch.arange(max_len).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, embed_dim, 2) * (-math.log(10000.0) / embed_dim))

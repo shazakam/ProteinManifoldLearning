@@ -5,7 +5,7 @@ basic_vae:
   latent_exp:
     exp_1:
       model: BasicVAE_exp_1
-      dataset: 'GO'
+      dataset: 'AlphaFold'
       data_type: 'point'
       batch_size: 256
       epochs: 200
@@ -19,7 +19,7 @@ basic_vae:
 
     exp_2:
       model: BasicVAE_exp_2
-      dataset: 'GO'
+      dataset: 'AlphaFold'
       data_type: 'point'
       batch_size: 256
       epochs: 200
@@ -33,7 +33,7 @@ basic_vae:
 
     exp_3:
       model: BasicVAE_exp_3
-      dataset: 'GO'
+      dataset: 'AlphaFold'
       data_type: 'point'
       batch_size: 256
       epochs: 200
@@ -47,7 +47,7 @@ basic_vae:
 
     exp_4:
       model: BasicVAE_exp_4
-      dataset: 'GO'
+      dataset: 'AlphaFold'
       data_type: 'point'
       batch_size: 256
       epochs: 200
@@ -56,6 +56,25 @@ basic_vae:
           lr: 0.001
       latent_dim: 2
       hidden_dims: 1024
+      seed: 42
+      max_seq_len: 500
+
+AttentionVAE:
+  latent_exp:
+    exp_1:
+      model: AttentionVAE_exp_1
+      dataset: 'ProteinLigand'
+      data_type: 'point'
+      batch_size: 256
+      epochs: 200
+      optimizer: adamw
+      optimizer_param:
+          lr: 0.001
+      latent_dim: 256
+      N_layers: 6
+      hidden_dim: 1024
+      num_heads: 4
+      dropout: 0.2
       seed: 42
       max_seq_len: 500
 

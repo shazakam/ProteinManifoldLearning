@@ -1,7 +1,7 @@
 import yaml
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
-from ..models.basicVae import LitBasicVae 
+from ..models.attentionVae import AttentionVAE 
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from ..dataset_classes.sequenceDataset import *
@@ -34,9 +34,9 @@ if __name__ == "__main__":
     config = load_config("src/training/training_config.yaml")
 
     # Specify Experiment / Model Training Configs
-    bvae_exp = input('Enter: <experiment_type>, <experiment_name> ')
-    bvae_exp = bvae_exp.split(',')
-    exp_config = config['basic_vae'][bvae_exp[0]][bvae_exp[1]]
+    attention_vae_exp = input('Enter: <experiment_type>, <experiment_name> ')
+    attention_vae_exp = attention_vae_exp.split(',')
+    exp_config = config['AttentionVAE'][attention_vae_exp[0]][attention_vae_exp[1]]
     model_name = exp_config['model']
     # Set random seed for reproducibility
     torch.manual_seed(exp_config["seed"])
@@ -62,15 +62,15 @@ if __name__ == "__main__":
     train_idx = list(set(idx_list) - set(val_idx))
 
     # Create data subsets
-    train_subset = SequenceDataset(Subset(dataset, train_idx), max_seq_len)
-    val_subset = SequenceDataset(Subset(dataset, val_idx), max_seq_len)
+    train_subset = SequenceDataset(Subset(dataset, train_idx), max_seq_len, transformer_input=True)
+    val_subset = SequenceDataset(Subset(dataset, val_idx), max_seq_len, transformer_input=True)
     seq_train_dataloader = DataLoader(train_subset, batch_size=exp_config['batch_size'], shuffle=False)
     seq_val_dataloader = DataLoader(val_subset, batch_size=exp_config['batch_size'], shuffle=False)
 
     # Model Checkpoints and saving
     checkpoint_callback = ModelCheckpoint(
-    dirpath='trained_models/trained_bvae',  # Folder to save checkpoints
-    filename=f'bvae_{bvae_exp[0]}_{bvae_exp[1]}',   # Checkpoint file name
+        dirpath='trained_models/trained_bvae',  # Folder to save checkpoints
+        filename=f'bvae_{attention_vae_exp[0]}_{attention_vae_exp[1]}',   # Checkpoint file name
     )
 
     # Early Stopping to avoid overfitting
@@ -94,9 +94,9 @@ if __name__ == "__main__":
     # Initialise Optimizer, Model anad begin training
     optimizer = get_optimizer(exp_config['optimizer'])
     optimzer_param = exp_config['optimizer_param']
-    model = LitBasicVae(exp_config['latent_dim'], optimizer, 
-                        optimzer_param, max_seq_len, 21, exp_config['hidden_dims'])
+    model = AttentionVAE(optimizer, optimzer_param, exp_config['N_layers'], 
+                         20, exp_config['hidden_dim'],
+                         exp_config['num_heads'], exp_config['dropout'],
+                         exp_config['latent_dim'], max_seq_len
+                         )
     trainer.fit(model, seq_train_dataloader, seq_val_dataloader)
-
-
-
