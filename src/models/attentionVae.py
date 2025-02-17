@@ -7,8 +7,10 @@ import math
 # TODO: CITE Relevant PyTorch Documentation for Attention Encoder Implementation
 
 class AttentionVAE(pl.LightningModule):
-    def __init__(self, N_layers, embed_dim, hidden_dim, num_heads, dropout, latent_dim, seq_len):
+    def __init__(self, device, optimizer, optimizer_param, N_layers, embed_dim, hidden_dim, num_heads, dropout, latent_dim, seq_len, amino_acids = 20):
         super().__init__()
+        self.optimizer = optimizer
+        self.optimizer_param = optimizer_param
         self.N_layers = N_layers
         self.embed_dim = embed_dim
         self.hidden_dim = hidden_dim
@@ -16,14 +18,17 @@ class AttentionVAE(pl.LightningModule):
         self.dropout = dropout
         self.latent_dim = latent_dim
         self.seq_len = seq_len
+        self.amino_acids = amino_acids
+        self.save_hyperparameters()
 
         # Encoder
-        self.pos_encoder = PositionalEncoding(embed_dim=embed_dim,dropout=dropout)
+        self.pos_encoder = PositionalEncoding(device=device, embed_dim=embed_dim,dropout=dropout)
         self.attention_encoders = nn.ModuleList([AttentionEncoderBlock(embed_dim=embed_dim,num_heads=num_heads,dropout=dropout, hidden_dim=hidden_dim) for i in range(N_layers)])
         self.global_forward_layer = nn.Sequential(nn.Linear(embed_dim, 1),
                                             nn.Softmax(dim=1))
         self.forward_latent_mean_layer = nn.Linear(embed_dim,latent_dim)
         self.forward_latent_logvar_layer = nn.Linear(embed_dim,latent_dim)
+        self.soft = nn.Softmax()
 
 
         # Decoder
@@ -52,8 +57,8 @@ class AttentionVAE(pl.LightningModule):
             """
 
             reparam_z, x_mu, x_logvar = self.encode(x)
-            x_rec = self.decode(reparam_z)
-            return reparam_z, x_mu, x_logvar, x_rec
+            x_rec, logit = self.decode(reparam_z)
+            return reparam_z, x_mu, x_logvar, x_rec, logit
 
     def encode(self, x):
         """
@@ -94,8 +99,9 @@ class AttentionVAE(pl.LightningModule):
         z = z.reshape(-1, self.hidden_dim//2, self.seq_len)
         z = self.conv_block_decoder(z)
         z = self.upsampling_conv_decoder(z)
-        z = z.permute(0,2,1)
-        return z 
+        logit = z.permute(0,2,1)
+        z = self.soft(logit)
+        return z , logit
 
     def reparametrisation(self, x_mu, x_logvar):
         """
@@ -114,21 +120,9 @@ class AttentionVAE(pl.LightningModule):
 
         return z_new
 
-    # def generate_n_samples(self, n):
-    #     """
-    #     Generate n samples from the latent space.
-
-    #     Args:
-    #         n (int): Number of samples to generate.
-
-    #     Returns:
-    #         torch.Tensor: Generated samples.
-    #     """
-    #     z = torch.randn(n, self.z_dim)
-    #     return self.decode(z)
     
     # TODO: Add ELBO to data_utils for ease of use
-    def ELBO(self, x, x_hat,x_mu, x_logvar):
+    def ELBO(self, x, logit,x_mu, x_logvar):
         """
         Compute the Evidence Lower Bound (ELBO) loss.
 
@@ -141,8 +135,21 @@ class AttentionVAE(pl.LightningModule):
         Returns:
             torch.Tensor: ELBO loss.
         """
-        rec_loss =  torch.nn.functional.mse_loss(x_hat, x, reduction='sum')
+        x = x.reshape(-1,self.seq_len,self.amino_acids)
+        logit = logit.reshape(-1,self.seq_len,self.amino_acids)
+        x_true_indices = x.argmax(dim=-1)
+        rec_loss =  torch.nn.functional.cross_entropy(logit.permute(0,2,1),x_true_indices, reduction='sum')
+
+        # rec_loss =  torch.nn.functional.binary_cross_entropy(x_hat, x, reduction='sum')
+        # x_true_indices = x.argmax(dim=-1)
+        # print(x_hat.shape)
+        # print(x_true_indices.shape)
+        # rec_loss = torch.nn.functional.cross_entropy(x_hat, x_true_indices, reduction='sum')
+        # rec_loss = torch.nn.functional.mse_loss(x_hat,x,reduction = 'sum')
+        
         KL_loss = -0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp())
+        # rec_loss =  torch.nn.functional.mse_loss(x_hat, x, reduction='sum')
+        # KL_loss = -0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp())
 
         return (rec_loss + KL_loss) / x.size(0) 
 
@@ -157,9 +164,10 @@ class AttentionVAE(pl.LightningModule):
         Returns:
             torch.Tensor: Training loss.
         """
-        x = batch[0].view(-1, self.input_dim)
-        rep_z, x_mu, x_logvar, x_rec = self(x)
-        loss = self.ELBO(x, x_rec,x_mu, x_logvar)
+        # x = batch.view(-1, self.input_dim)
+        x = batch
+        rep_z, x_mu, x_logvar, x_rec, logit = self(x)
+        loss = self.ELBO(x, logit,x_mu, x_logvar)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log("learning_rate", self.trainer.optimizers[0].param_groups[0]['lr'], prog_bar=True)
         return loss
@@ -192,7 +200,7 @@ class AttentionVAE(pl.LightningModule):
         optimizer = self.optimizer(self.parameters(), **self.optimizer_param)
 
         # 🔹 Using ReduceLROnPlateau
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
 
 
         return  {
@@ -257,9 +265,10 @@ class FeedForwardEncoderSubLayer(nn.Module):
     
 class PositionalEncoding(nn.Module):
 
-    def __init__(self, embed_dim: int, dropout: float = 0.1, max_len: int = 5000):
+    def __init__(self, device, embed_dim: int, dropout: float = 0.1, max_len: int = 5000):
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
+        self.device = device
 
         position = torch.arange(max_len).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, embed_dim, 2) * (-math.log(10000.0) / embed_dim))
@@ -272,5 +281,7 @@ class PositionalEncoding(nn.Module):
         Arguments:
             x: Tensor, shape ``[seq_len, batch_size, embedding_dim]``
         """
-        x = x + self.pe[:x.size(0)]
+        y = self.pe[:x.size(0)].to(self.device)
+        x = x + y#self.pe[:x.size(0)]
+     
         return self.dropout(x)

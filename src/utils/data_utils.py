@@ -52,6 +52,11 @@ def one_hot_encode_seq(seq, max_seq_len, transformer_input = False, convert_to_t
         return torch.tensor(np.array(one_hot_list),dtype=torch.float32)
     else:
 
+        for char in seq:
+            one_hot = np.zeros(20)
+            one_hot[amino_encoding_dict[char]] = 1
+            one_hot_list.append(one_hot)
+
         # Padd Sequence with zeros if not long enough
         encoded_array = np.array(one_hot_list)
         padded_array = np.pad(encoded_array, pad_width=((0, max_seq_len - encoded_array.shape[0]), (0, 0)), mode='constant', constant_values=0)

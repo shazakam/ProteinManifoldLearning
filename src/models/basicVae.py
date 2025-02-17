@@ -22,7 +22,6 @@ class LitBasicVae(pl.LightningModule):
         self.seq_len = seq_len
         self.amino_acids = amino_acids
         self.input_dim = self.amino_acids*self.seq_len
-        # self.automatic_optimization = False
 
         # Activation Functions
         self.relu = nn.ReLU()
@@ -160,7 +159,7 @@ class LitBasicVae(pl.LightningModule):
         Returns:
             torch.Tensor: Validation loss.
         """
-        # NOTE TO SELF CHANGE THIS TO FIT PROTEIN IMPLEMENTATION
+
         x = batch.view(-1,self.input_dim)
         rep_z, x_mu, x_logvar, x_rec, logit = self(x)
         loss = self.ELBO(x, logit,x_mu, x_logvar)
@@ -178,7 +177,7 @@ class LitBasicVae(pl.LightningModule):
         optimizer = self.optimizer(self.parameters(), **self.optimizer_param)
 
         # 🔹 Using ReduceLROnPlateau
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
 
 
         return  {
