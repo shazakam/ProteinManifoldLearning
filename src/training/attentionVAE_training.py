@@ -82,7 +82,7 @@ if __name__ == "__main__":
 )
 
     # Define Model and Trainer
-    log_dir = 'experiments/training_logs/latent_BVAE'
+    log_dir = 'experiments/training_logs/latent_AttentionVAE'
     trainer = pl.Trainer(max_epochs=exp_config['epochs'],
         accelerator="auto",
         devices="auto",

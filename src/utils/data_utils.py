@@ -74,7 +74,7 @@ def one_hot_encode_seq(seq, max_seq_len, transformer_input = False, convert_to_t
         return torch.tensor(padded_array, dtype=torch.float32)
     
 
-def make_one_hot_data_list(dataset, max_seq_len, transformer_input):
+def make_one_hot_data_list(dataset, max_seq_len, transformer_input, return_proteins = True):
     one_hot_dataset = []
     proteins = []
 
@@ -84,30 +84,19 @@ def make_one_hot_data_list(dataset, max_seq_len, transformer_input):
             continue
 
         else:
-            proteins.append(sample)
+
+            if return_proteins:
+                proteins.append(sample)
+        
             one_hot_seq = one_hot_encode_seq(sample[1]['protein']['sequence'], max_seq_len, transformer_input)
             # one_hot_seq = one_hot_seq.flatten()
             one_hot_dataset.append(one_hot_seq)
 
-    return one_hot_dataset, proteins
+    if return_proteins:
 
-def ELBO(x, x_hat,x_mu, x_logvar):
-        """
-        Compute the Evidence Lower Bound (ELBO) loss.
-
-        Args:
-            x (torch.Tensor): Original input.
-            x_hat (torch.Tensor): Reconstructed input.
-            x_mu (torch.Tensor): Mean of the latent vector.
-            x_logvar (torch.Tensor): Log variance of the latent vector.
-
-        Returns:
-            torch.Tensor: ELBO loss.
-        """
-        rec_loss =  torch.nn.functional.mse_loss(x_hat, x, reduction='sum')
-        KL_loss = -0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp())
-
-        return (rec_loss + KL_loss) / x.size(0) 
+        return one_hot_dataset, proteins
+    else:
+        return one_hot_dataset
 
 
     

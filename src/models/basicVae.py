@@ -116,13 +116,6 @@ class LitBasicVae(pl.LightningModule):
         logit = logit.reshape(-1,self.seq_len,self.amino_acids)
         x_true_indices = x.argmax(dim=-1)
         rec_loss =  torch.nn.functional.cross_entropy(logit.permute(0,2,1),x_true_indices, reduction='sum')
-
-        # rec_loss =  torch.nn.functional.binary_cross_entropy(x_hat, x, reduction='sum')
-        # x_true_indices = x.argmax(dim=-1)
-        # print(x_hat.shape)
-        # print(x_true_indices.shape)
-        # rec_loss = torch.nn.functional.cross_entropy(x_hat, x_true_indices, reduction='sum')
-        # rec_loss = torch.nn.functional.mse_loss(x_hat,x,reduction = 'sum')
         
         KL_loss = -0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp())
 

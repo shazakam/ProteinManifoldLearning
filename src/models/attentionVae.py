@@ -7,7 +7,7 @@ import math
 # TODO: CITE Relevant PyTorch Documentation for Attention Encoder Implementation
 
 class AttentionVAE(pl.LightningModule):
-    def __init__(self, optimizer, optimizer_param, N_layers, embed_dim, hidden_dim, num_heads, dropout, latent_dim, seq_len):
+    def __init__(self, optimizer, optimizer_param, N_layers, embed_dim, hidden_dim, num_heads, dropout, latent_dim, seq_len, get_attention_weights = False):
         super().__init__()
         self.optimizer = optimizer
         self.optimizer_param = optimizer_param
@@ -18,29 +18,25 @@ class AttentionVAE(pl.LightningModule):
         self.dropout = dropout
         self.latent_dim = latent_dim
         self.seq_len = seq_len
+        self.get_attention_weights = False
         self.save_hyperparameters()
 
         # Encoder
         self.pos_encoder = PositionalEncoding(device=self.device, embed_dim=embed_dim,dropout=dropout)
         self.attention_encoders = nn.ModuleList([AttentionEncoderBlock(embed_dim=embed_dim,num_heads=num_heads,dropout=dropout, hidden_dim=hidden_dim) for i in range(N_layers)])
-        self.global_forward_layer = nn.Sequential(nn.Linear(embed_dim, 1),
-                                            nn.Softmax(dim=1))
-        self.forward_latent_mean_layer = nn.Linear(embed_dim,latent_dim)
-        self.forward_latent_logvar_layer = nn.Linear(embed_dim,latent_dim)
-        self.soft = nn.Softmax()
 
+        self.global_forward_layer = nn.Linear(self.seq_len, self.seq_len//2)
+
+        self.forward_latent_mean_layer = nn.Linear(self.embed_dim*self.seq_len//2,latent_dim)
+        self.forward_latent_logvar_layer = nn.Linear(self.embed_dim*self.seq_len//2,latent_dim)
+        self.soft = nn.Softmax(dim=-1)
 
         # Decoder
-        self.ffw_decoder = nn.Linear(latent_dim, seq_len*(hidden_dim//2))
+        self.relu = nn.ReLU()
+        self.fc1_dec = nn.Linear(latent_dim,self.embed_dim*self.seq_len//2)
+        self.fc3_dec = nn.Linear(self.embed_dim*self.seq_len//2, self.embed_dim*self.seq_len)
 
-        self.conv_block_decoder = nn.Sequential(
-                    nn.Conv1d(in_channels=hidden_dim//2, out_channels=hidden_dim, kernel_size=3, padding=1, stride=1, bias=False),
-                    nn.BatchNorm1d(hidden_dim),
-                    nn.ReLU(),
-                    nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1, stride=1, bias=False),
-                    nn.BatchNorm1d(hidden_dim))
-        
-        self.upsampling_conv_decoder = nn.Conv1d(hidden_dim,20, kernel_size=3, padding=1)
+        self.attention_weights = [0]*N_layers
 
 
 
@@ -70,14 +66,30 @@ class AttentionVAE(pl.LightningModule):
             tuple: Reparameterized latent vector, mean, and log variance.
         
         """
-        padding_mask = (x.sum(dim=-1) == 0).bool()  
+
+        # Create Mask to ignore empty tokens
+        padding_mask = (x.sum(dim=-1) == 0).bool()
+
+        # Add Positional Encoding information  
         x = self.pos_encoder(x)
 
-        for attention_enc in self.attention_encoders:
-            x = attention_enc(x, key_mask = padding_mask)
+        # Perform Multihead self attention to get a context aware embedding of sequence input
+        for idx, attention_enc in enumerate(self.attention_encoders):
 
-        global_att = self.global_forward_layer(x)
-        x = torch.bmm(global_att.transpose(-1, 1), x).squeeze()
+            if self.get_attention_weights:
+                x, attention_weight = attention_enc(x, key_mask = padding_mask)
+                self.attention_weights[idx] = attention_weight
+            else:
+                x, _ = attention_enc(x, key_mask = padding_mask)
+
+        # Permute and convert sequence to a shortened representation (N, embed_dim, shortened seq_len)
+        x = x.permute(0,2,1)
+        x = self.global_forward_layer(x)
+        
+        # Flatten Final representation
+        x = x.reshape(-1, x.shape[1]*x.shape[2])
+
+        # Pass shortened and context aware embedding through final layers for latent representation
         x_mu = self.forward_latent_mean_layer(x)
         x_logvar = self.forward_latent_logvar_layer(x)
         reparam_z = self.reparametrisation(x_mu, x_logvar)
@@ -94,13 +106,13 @@ class AttentionVAE(pl.LightningModule):
         Returns:
             torch.Tensor: Reconstructed input.
         """
-        z = self.ffw_decoder(z)
-        z = z.reshape(-1, self.hidden_dim//2, self.seq_len)
-        z = self.conv_block_decoder(z)
-        z = self.upsampling_conv_decoder(z)
-        logit = z.permute(0,2,1)
+
+        z = self.relu(self.fc1_dec(z))
+        logit = self.fc3_dec(z)
+        logit = logit.reshape(-1,self.seq_len, self.embed_dim)
         z = self.soft(logit)
-        return z , logit
+        return z, logit
+    
 
     def reparametrisation(self, x_mu, x_logvar):
         """
@@ -119,9 +131,7 @@ class AttentionVAE(pl.LightningModule):
 
         return z_new
 
-    
-    # TODO: Add ELBO to data_utils for ease of use
-    def ELBO(self, x, logit,x_mu, x_logvar):
+    def ELBO(self, x, logit, x_mu, x_logvar):
         """
         Compute the Evidence Lower Bound (ELBO) loss.
 
@@ -134,23 +144,12 @@ class AttentionVAE(pl.LightningModule):
         Returns:
             torch.Tensor: ELBO loss.
         """
-        x = x.reshape(-1,self.seq_len,self.embed_dim)
-        logit = logit.reshape(-1,self.seq_len,self.embed_dim)
         x_true_indices = x.argmax(dim=-1)
         rec_loss =  torch.nn.functional.cross_entropy(logit.permute(0,2,1),x_true_indices, reduction='sum')
-
-        # rec_loss =  torch.nn.functional.binary_cross_entropy(x_hat, x, reduction='sum')
-        # x_true_indices = x.argmax(dim=-1)
-        # print(x_hat.shape)
-        # print(x_true_indices.shape)
-        # rec_loss = torch.nn.functional.cross_entropy(x_hat, x_true_indices, reduction='sum')
-        # rec_loss = torch.nn.functional.mse_loss(x_hat,x,reduction = 'sum')
-        
         KL_loss = -0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp())
-        # rec_loss =  torch.nn.functional.mse_loss(x_hat, x, reduction='sum')
-        # KL_loss = -0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp())
-
-        return (rec_loss + KL_loss) / x.size(0) 
+        self.log("av_rec_loss", rec_loss / x.size(0), prog_bar=True)
+        self.log("av_KL_loss", KL_loss / x.size(0), prog_bar=True)
+        return ((rec_loss) + (KL_loss)) / x.size(0)
 
     def training_step(self, batch, batch_idx):
         """
@@ -163,10 +162,9 @@ class AttentionVAE(pl.LightningModule):
         Returns:
             torch.Tensor: Training loss.
         """
-        # x = batch.view(-1, self.input_dim)
         x = batch
         rep_z, x_mu, x_logvar, x_rec, logit = self(x)
-        loss = self.ELBO(x, logit,x_mu, x_logvar)
+        loss = self.ELBO(x, logit, x_mu, x_logvar)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log("learning_rate", self.trainer.optimizers[0].param_groups[0]['lr'], prog_bar=True)
         return loss
@@ -211,12 +209,19 @@ class AttentionVAE(pl.LightningModule):
                 "frequency": 1,  
             }
         }
+    
+
+
+    def on_train_start(self):
+        self.pos_encoder.device = self.device
 
     def on_train_epoch_end(self):
         return super().validation_step()
     
-    def on_fit_start(self):
-        self.pos_encoder.device = self.device
+    def on_train_epoch_end(self):
+        for name, param in self.named_parameters():
+            if param.requires_grad:
+                self.logger.experiment.add_histogram(f"weights/{name}", param, self.current_epoch)
     
 class AttentionEncoderBlock(nn.Module):
     def __init__(self, embed_dim, num_heads, dropout, hidden_dim):
@@ -236,13 +241,13 @@ class AttentionEncoderBlock(nn.Module):
     def forward(self, x, key_mask):
 
         # Multihead Attention and Add+Layer Norm 
-        attention_out, _ = self.attention(x, x, x, key_padding_mask = key_mask, need_weights = False)
+        attention_out, attention_weights = self.attention(x, x, x, key_padding_mask = key_mask, need_weights = True)
         x = x + self.dropout(attention_out)
         x = self.layer_norm(x)
 
         # FeedForward
         x = self.feedforward_sublayer(x)
-        return x
+        return x, attention_weights
     
 class FeedForwardEncoderSubLayer(nn.Module):
     def __init__(self, embed_dim, hidden_dim, dropout):
@@ -284,6 +289,6 @@ class PositionalEncoding(nn.Module):
             x: Tensor, shape ``[seq_len, batch_size, embedding_dim]``
         """
         y = self.pe[:x.size(0)].to(self.device)
-        x = x + y#self.pe[:x.size(0)]
+        x = x + y
      
         return self.dropout(x)
