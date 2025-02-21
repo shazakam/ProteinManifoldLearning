@@ -31,10 +31,10 @@ def get_optimizer(optimizer):
     return optimizer
 
 def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len):
-    latent_dim_suggestion = trial.suggest_int("latent_dim_suggestion", 64, 512, step=64)
-    hidden_dim_suggestion = trial.suggest_int("hidden_dim_suggestion", 256, 2048, step=256)
+    latent_dim_suggestion = trial.suggest_int("latent_dim_suggestion", 64, 256, step=64)
+    hidden_dim_suggestion = trial.suggest_int("hidden_dim_suggestion", 256, 512, step=128)
     dropout_suggestion = trial.suggest_float("dropout_suggesstion",0,0.6, step = 0.1)
-    num_heads_suggestion = trial.suggest_categorical("num_heads_suggestion", [2,4,8])
+    num_heads_suggestion = trial.suggest_categorical("num_heads_suggestion", [2,8])
     embed_dim_suggestion = trial.suggest_int("embed_dim_suggestion",64,256, step = 64)
 
     # Model Checkpoints and saving
