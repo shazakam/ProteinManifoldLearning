@@ -9,6 +9,7 @@ import pytorch_lightning as pl
 from proteinshake.datasets import ProteinLigandInterfaceDataset, AlphaFoldDataset, GeneOntologyDataset
 import sys
 import random
+import optuna
 
 # Load config
 def load_config(config_file="config.yaml"):
@@ -28,6 +29,61 @@ def get_optimizer(optimizer):
         raise ValueError(f"Unsupported optimizer type: {optimizer}")
     
     return optimizer
+
+
+def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len):
+    latent_dim_suggestion = trial.suggest_int("latent_dim_suggestion", 64, 512, step=64)
+    hidden_dim_suggestion = trial.suggest_int("hidden_dim_suggestion", 512, 1024, step=256)
+    dropout_suggestion = trial.suggest_float("dropout_suggesstion",0,0.4, step = 0.1)
+    beta_suggestion = trial.suggest_float("beta", 1, 20)
+
+    # Model Checkpoints and saving
+    checkpoint_callback = ModelCheckpoint(
+    monitor='val_loss',
+    save_top_k=1,
+    mode = 'min',
+    dirpath=f'trained_models/GO/optimise_bvae/{trial.study.study_name}/',  # Folder to save checkpoints
+    filename=f'{trial.study.study_name}_{trial.number}',   # Checkpoint file name
+    )
+
+    # Early Stopping to avoid overfitting
+    early_stop_callback = EarlyStopping(
+    monitor="val_loss_epoch",  # Metric to track
+    mode="min",           # Stop when "val/loss" is minimized
+    patience = 5,           # Wait 5 epochs before stopping
+    verbose=True
+    )   
+
+    # Define Model and Trainer
+    log_dir = f'experiments/training_logs/latent_BVAE/{trial.study.study_name}'
+    trainer = pl.Trainer(max_epochs = 100,
+        accelerator="auto",
+        devices="auto",
+        logger=TensorBoardLogger(save_dir=log_dir, name= f'optimise_bvae_trial_{trial.number}'),
+        callbacks=[early_stop_callback, checkpoint_callback],
+        log_every_n_steps = 20
+        )
+    
+    # Initialise Optimizer, Model anad begin training
+    optimizer = torch.optim.AdamW
+    optimzer_param = {'lr':0.001}
+
+    model = LitBasicVae(latent_dim = latent_dim_suggestion, 
+                        optimizer = optimizer, 
+                        optimizer_param = optimzer_param,
+                        seq_len = max_seq_len, 
+                        amino_acids = 21, 
+                        hidden_dim = hidden_dim_suggestion,
+                        beta = beta_suggestion,
+                        dropout=dropout_suggestion)
+
+    
+    trainer.fit(model, seq_train_dataloader, seq_val_dataloader)
+
+    
+    # Return the final training loss
+    return trainer.callback_metrics.get("val_loss_epoch", torch.tensor(float("inf"))).item()
+
 
 # Main function to run experiments
 if __name__ == "__main__":
@@ -55,7 +111,7 @@ if __name__ == "__main__":
         print('Other datasets not used at the moment')
         sys.exit()
 
-    max_seq_len = exp_config['max_seq_len']
+    max_seq_len = 500
     idx_list = range(len(dataset))
     subset_size = int(len(dataset)//10)
     val_idx = random.sample(idx_list, subset_size)  # Get random subset
@@ -64,39 +120,64 @@ if __name__ == "__main__":
     # Create data subsets
     train_subset = SequenceDataset(Subset(dataset, train_idx), max_seq_len)
     val_subset = SequenceDataset(Subset(dataset, val_idx), max_seq_len)
-    seq_train_dataloader = DataLoader(train_subset, batch_size=exp_config['batch_size'], shuffle=False)
-    seq_val_dataloader = DataLoader(val_subset, batch_size=exp_config['batch_size'], shuffle=False)
+    seq_train_dataloader = DataLoader(train_subset, batch_size=exp_config['batch_size'], shuffle=True)
+    seq_val_dataloader = DataLoader(val_subset, batch_size=exp_config['batch_size'], shuffle=True)
+    dataset = exp_config['dataset']
 
-    # Model Checkpoints and saving
-    checkpoint_callback = ModelCheckpoint(
-    dirpath='trained_models/trained_bvae',  # Folder to save checkpoints
-    filename=f'bvae_{bvae_exp[0]}_{bvae_exp[1]}',   # Checkpoint file name
-    )
+    print(exp_config)
 
-    # Early Stopping to avoid overfitting
-    early_stop_callback = EarlyStopping(
-    monitor="val_loss",  # Metric to track
-    mode="min",           # Stop when "val/loss" is minimized
-    patience=6,           # Wait 5 epochs before stopping
-    verbose=True
-)
+#     # Model Checkpoints and saving
+#     checkpoint_callback = ModelCheckpoint(
+#     monitor='val_loss',
+#     save_top_k=1,
+#     mode = 'min',
+#     dirpath=f'trained_models/{dataset}/trained_bvae/',  # Folder to save checkpoints
+#     filename=f'bvae_{bvae_exp[0]}_{bvae_exp[1]}',   # Checkpoint file name
+#     )
 
-    # Define Model and Trainer
-    log_dir = 'experiments/training_logs/latent_BVAE'
-    trainer = pl.Trainer(max_epochs=exp_config['epochs'],
-        accelerator="auto",
-        devices="auto",
-        logger=TensorBoardLogger(save_dir=log_dir, name= f'{model_name}'),
-        callbacks=[early_stop_callback, checkpoint_callback],
-        log_every_n_steps = 50
-        )
+#     # Early Stopping to avoid overfitting
+#     early_stop_callback = EarlyStopping(
+#     monitor="val_loss_epoch",  # Metric to track
+#     mode="min",           # Stop when "val/loss" is minimized
+#     patience = 15,           # Wait 5 epochs before stopping
+#     verbose=True
+# )
+
+#     # Define Model and Trainer
+#     log_dir = 'experiments/training_logs/latent_BVAE'
+#     trainer = pl.Trainer(max_epochs=exp_config['epochs'],
+#         accelerator="auto",
+#         devices="auto",
+#         logger=TensorBoardLogger(save_dir=log_dir, name= f'{model_name}'),
+#         callbacks=[early_stop_callback, checkpoint_callback],
+#         log_every_n_steps = 20
+#         )
     
-    # Initialise Optimizer, Model anad begin training
-    optimizer = get_optimizer(exp_config['optimizer'])
-    optimzer_param = exp_config['optimizer_param']
-    model = LitBasicVae(exp_config['latent_dim'], optimizer, 
-                        optimzer_param, max_seq_len, 21, exp_config['hidden_dims'])
-    trainer.fit(model, seq_train_dataloader, seq_val_dataloader)
+#     # Initialise Optimizer, Model anad begin training
+#     optimizer = get_optimizer(exp_config['optimizer'])
+#     optimzer_param = exp_config['optimizer_param']
+#     model = LitBasicVae(latent_dim = exp_config['latent_dim'], 
+#                         optimizer = optimizer, 
+#                         optimizer_param = optimzer_param,
+#                         seq_len = max_seq_len, 
+#                         amino_acids = 21, 
+#                         hidden_dim = exp_config['hidden_dims'],
+#                         beta = exp_config['beta'])
+#     trainer.fit(model, seq_train_dataloader, seq_val_dataloader)
+
+    # Run Optuna study
+    print('Creating Study')
+    study = optuna.create_study(study_name='BasicVAE_HyperParam_Tuning_v1', direction="minimize")
+    study.optimize(lambda trial: objective(trial, seq_train_dataloader=seq_train_dataloader, seq_val_dataloader=seq_val_dataloader, max_seq_len=max_seq_len), n_trials=50)
+
+    print("Best trial:")
+    trial = study.best_trial
+
+    print("  Value: {}".format(trial.value))
+    print("  Params: ")
+    for key, value in trial.params.items():
+        print("    {}: {}".format(key, value))
+
 
 
 
