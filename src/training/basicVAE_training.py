@@ -35,7 +35,7 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len):
     latent_dim_suggestion = trial.suggest_int("latent_dim_suggestion", 64, 512, step=64)
     hidden_dim_suggestion = trial.suggest_int("hidden_dim_suggestion", 512, 1024, step=256)
     dropout_suggestion = trial.suggest_float("dropout_suggesstion",0,0.4, step = 0.1)
-    beta_suggestion = trial.suggest_float("beta", 1, 20)
+    beta_suggestion = 1 #trial.suggest_float("beta", 1, 20)
 
     # Model Checkpoints and saving
     checkpoint_callback = ModelCheckpoint(
@@ -50,7 +50,7 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len):
     early_stop_callback = EarlyStopping(
     monitor="val_loss_epoch",  # Metric to track
     mode="min",           # Stop when "val/loss" is minimized
-    patience = 5,           # Wait 5 epochs before stopping
+    patience = 4,           # Wait 5 epochs before stopping
     verbose=True
     )   
 
@@ -167,7 +167,7 @@ if __name__ == "__main__":
 
     # Run Optuna study
     print('Creating Study')
-    study = optuna.create_study(study_name='BasicVAE_HyperParam_Tuning_v1', direction="minimize")
+    study = optuna.create_study(study_name='BasicVAE_HyperParam_Tuning_v2', direction="minimize")
     study.optimize(lambda trial: objective(trial, seq_train_dataloader=seq_train_dataloader, seq_val_dataloader=seq_val_dataloader, max_seq_len=max_seq_len), n_trials=50)
 
     print("Best trial:")

@@ -38,9 +38,6 @@ class LitBasicVae(pl.LightningModule):
         self.fc1_dec = nn.Linear(latent_dim,self.hidden_dim)
         self.fc3_dec = nn.Linear(self.hidden_dim, self.input_dim)
 
-        self.batch_KL_loss = []
-        self.batch_rec_loss =[]
-
     def forward(self, x):
         """
         Forward pass through the VAE.
@@ -108,22 +105,10 @@ class LitBasicVae(pl.LightningModule):
         return z_new
     
     def ELBO(self, x, logit, x_mu, x_logvar):
-        """
-        Compute the Evidence Lower Bound (ELBO) loss.
 
-        Args:
-            x (torch.Tensor): Original input.
-            x_hat (torch.Tensor): Reconstructed input.
-            x_mu (torch.Tensor): Mean of the latent vector.
-            x_logvar (torch.Tensor): Log variance of the latent vector.
-
-        Returns:
-            torch.Tensor: ELBO loss.
-        """
         x_true_indices = x.argmax(dim=-1)
         rec_loss =  torch.nn.functional.cross_entropy(logit.permute(0,2,1),x_true_indices, reduction='sum')
         KL_loss = -0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp())
-
         
         return (rec_loss + self.beta*KL_loss) / x.size(0), rec_loss/ x.size(0), KL_loss/ x.size(0)
     
@@ -164,12 +149,9 @@ class LitBasicVae(pl.LightningModule):
         rep_z, x_mu, x_logvar, x_rec, logit = self(x)
         loss, rec_loss, KL_loss = self.ELBO(x, logit,x_mu, x_logvar)
 
-        self.batch_rec_loss.append(rec_loss)
-        self.batch_KL_loss.append(KL_loss)
-
         self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("average_val_epoch_rec_loss", sum(self.batch_rec_loss) / len(self.batch_rec_loss), on_epoch=True, on_step=False, prog_bar=True)
-        self.log("average_val_epoch_KL_loss", sum(self.batch_KL_loss) / len(self.batch_KL_loss), on_epoch=True, on_step=False, prog_bar=True)
+        self.log("average_val_epoch_rec_loss", rec_loss, on_epoch=True, on_step=False, prog_bar=True)
+        self.log("average_val_epoch_KL_loss", KL_loss, on_epoch=True, on_step=False, prog_bar=True)
 
         return loss
     
@@ -200,14 +182,7 @@ class LitBasicVae(pl.LightningModule):
     def on_train_epoch_end(self):
         self.log("learning_rate", self.trainer.optimizers[0].param_groups[0]['lr'], prog_bar=True)
 
-        self.batch_rec_loss = []
-        self.batch_KL_loss = []
-
         for name, param in self.named_parameters():
             if param.requires_grad:
                 self.logger.experiment.add_histogram(f"weights/{name}", param, self.current_epoch)
-
-    def on_validation_epoch_end(self):
-        self.batch_rec_loss = []
-        self.batch_KL_loss = []
 
