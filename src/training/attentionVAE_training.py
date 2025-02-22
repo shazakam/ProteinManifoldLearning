@@ -31,11 +31,11 @@ def get_optimizer(optimizer):
     return optimizer
 
 def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len):
-    latent_dim_suggestion = trial.suggest_int("latent_dim_suggestion", 64, 256, step=64)
-    hidden_dim_suggestion = trial.suggest_int("hidden_dim_suggestion", 256, 512, step=128)
-    dropout_suggestion = trial.suggest_float("dropout_suggesstion",0,0.6, step = 0.1)
+    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [192]) #trial.suggest_int("latent_dim_suggestion", 64, 256, step=64)
+    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [512]) #trial.suggest_int("hidden_dim_suggestion", 256, 512, step=128)
+    dropout_suggestion = trial.suggest_categorical("dropout_suggestion", [0,0.6]) #trial.suggest_float("dropout_suggesstion",0,0.6, step = 0.1)
     num_heads_suggestion = trial.suggest_categorical("num_heads_suggestion", [2,8])
-    embed_dim_suggestion = trial.suggest_int("embed_dim_suggestion",64,256, step = 64)
+    embed_dim_suggestion = trial.suggest_categorical("embed_dim_suggestion", [128]) #trial.suggest_int("embed_dim_suggestion",64,256, step = 64)
 
     # Model Checkpoints and saving
     checkpoint_callback = ModelCheckpoint(
@@ -67,6 +67,8 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len):
     # Initialise Optimizer, Model anad begin training
     optimizer = torch.optim.AdamW
     optimzer_param = {'lr':0.001}
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = AttentionVAE(optimizer, optimzer_param, 
                          embed_dim=embed_dim_suggestion, 
@@ -162,7 +164,7 @@ if __name__ == "__main__":
 #     trainer.fit(model, seq_train_dataloader, seq_val_dataloader)
 
     print('Creating Study')
-    study = optuna.create_study(study_name='AttentionVAE_HyperParam_Tuning_v1', direction="minimize")
+    study = optuna.create_study(study_name='AttentionVAE_HyperParam_Tuning_v2_V7', direction="minimize")
     study.optimize(lambda trial: objective(trial, seq_train_dataloader=seq_train_dataloader, seq_val_dataloader=seq_val_dataloader, max_seq_len=max_seq_len), n_trials=20)
 
     print("Best trial:")

@@ -7,7 +7,7 @@ import math
 # TODO: CITE Relevant PyTorch Documentation for Attention Encoder Implementation
 
 class AttentionVAE(pl.LightningModule):
-    def __init__(self, optimizer, optimizer_param, embed_dim, hidden_dim, num_heads, dropout, latent_dim, seq_len, device = 'mps'):
+    def __init__(self, optimizer, optimizer_param, embed_dim, hidden_dim, num_heads, dropout, latent_dim, seq_len):
         super().__init__()
         self.optimizer = optimizer
         self.optimizer_param = optimizer_param
@@ -31,7 +31,6 @@ class AttentionVAE(pl.LightningModule):
         self.pe[:, 0::2] = torch.sin(position * div_term)
         self.pe[:, 1::2] = torch.cos(position * div_term)
         self.pe = self.pe.unsqueeze(0)
-        self.pe = self.pe.to(device)
 
         # self.pos_encoder = PositionalEncoding(device=self.device, embed_dim=embed_dim,dropout=dropout)
 
@@ -68,7 +67,7 @@ class AttentionVAE(pl.LightningModule):
         # Add Positional Encoding information  
         # x = self.pos_encoder(x)
 
-        x = x + self.pe[:, :x.size(1)]
+        x = x + self.pe[:, :x.size(1)].to(self.device)
         x = self.dropout_layer(x)
 
         x = self.transformer_encoder(src = x, src_key_padding_mask = padding_mask)
@@ -120,11 +119,11 @@ class AttentionVAE(pl.LightningModule):
         rep_z, x_mu, x_logvar, x_rec, logit = self(x)
         loss, rec_loss, KL_loss = self.ELBO(one_hot_encoded_x, logit, x_mu, x_logvar)
 
-        self.batch_rec_loss += rec_loss.item()
-        self.batch_KL_loss += KL_loss.item()
+        # self.batch_rec_loss += rec_loss.item()
+        # self.batch_KL_loss += KL_loss.item()
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("average_train_epoch_rec_loss", self.batch_rec_loss / x.shape[0], on_epoch=True, on_step=False, prog_bar=True)
-        self.log("average_train_epoch_KL_loss", self.batch_KL_loss / x.shape[0], on_epoch=True, on_step=False, prog_bar=True)
+        self.log("average_train_epoch_rec_loss", rec_loss, on_epoch=True, on_step=False, prog_bar=True)
+        self.log("average_train_epoch_KL_loss", KL_loss, on_epoch=True, on_step=False, prog_bar=True)
 
         return loss
 
@@ -134,11 +133,11 @@ class AttentionVAE(pl.LightningModule):
         rep_z, x_mu, x_logvar, x_rec, logit = self(x)
         loss, rec_loss, KL_loss = self.ELBO(one_hot_encoded_x, logit ,x_mu, x_logvar)
 
-        self.batch_rec_loss += rec_loss.item()
-        self.batch_KL_loss += KL_loss.item()
+        #self.batch_rec_loss += rec_loss.item()
+        #self.batch_KL_loss += KL_loss.item()
         self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("average_val_epoch_rec_loss", self.batch_rec_loss / x.shape[0], on_epoch=True, on_step=False, prog_bar=True)
-        self.log("average_val_epoch_KL_loss", self.batch_rec_loss / x.shape[0], on_epoch=True, on_step=False, prog_bar=True)
+        self.log("average_val_epoch_rec_loss", rec_loss, on_epoch=False, on_step=True, prog_bar=True, logger=True)
+        self.log("average_val_epoch_KL_loss", KL_loss, on_epoch=False, on_step=True, prog_bar=True, logger=True)
         return loss
 
     def configure_optimizers(self):
@@ -160,7 +159,7 @@ class AttentionVAE(pl.LightningModule):
         }
 
     # def on_train_start(self):
-    #     self.pos_encoder.device = self.device
+    #     self.pe.to(self.device)
 
     # def on_validation_start(self):
     #     self.pos_encoder.device = self.device

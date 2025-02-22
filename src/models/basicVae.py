@@ -142,11 +142,9 @@ class LitBasicVae(pl.LightningModule):
         rep_z, x_mu, x_logvar, x_rec, logit = self(x)
         loss, rec_loss, KL_loss = self.ELBO(x, logit, x_mu, x_logvar)
 
-        self.batch_rec_loss.append(rec_loss)
-        self.batch_KL_loss.append(KL_loss)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("average_train_epoch_rec_loss", sum(self.batch_rec_loss) / len(self.batch_rec_loss), on_epoch=True, on_step=False, prog_bar=True)
-        self.log("average_train_epoch_KL_loss", sum(self.batch_KL_loss) / len(self.batch_KL_loss), on_epoch=True, on_step=False, prog_bar=True)
+        self.log("average_train_epoch_rec_loss", rec_loss, on_epoch=True, on_step=False, prog_bar=True)
+        self.log("average_train_epoch_KL_loss", KL_loss, on_epoch=True, on_step=False, prog_bar=True)
      
         return loss
     
