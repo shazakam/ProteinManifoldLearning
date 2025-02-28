@@ -33,6 +33,34 @@ def get_max_seq_len(dataset):
             max_len = seq_leng
     return max_len
 
+def filter_by_max_length_and_pad(dataset, max_seq_len, return_proteins = False):
+    proteins = []
+
+    if return_proteins:
+        org_protein_data = []
+        for sample in tqdm(dataset):
+            seq_leng = len(sample[1]['protein']['sequence'])
+            if seq_leng <= max_seq_len:
+                proteins.append(pad_cloud_data(sample[0], max_seq_len))
+                org_protein_data.append(sample)
+        return proteins, org_protein_data
+    
+    else:
+        for sample in tqdm(dataset):
+            seq_leng = len(sample[1]['protein']['sequence'])
+            if seq_leng <= max_seq_len:
+                proteins.append(pad_cloud_data(sample[0], max_seq_len))
+        return proteins
+    
+def pad_cloud_data(sample, max_seq_len):
+    num_pads = max_seq_len - sample.shape[0]
+    padding = torch.zeros((num_pads, sample.shape[1]))
+    padded = torch.concatenate([sample, padding], dim = 0)
+    return padded
+
+
+
+
 def one_hot_encode_seq(seq, max_seq_len, transformer_input = False, convert_to_tensor=True):
 
     amino_encoding_dict = {'S': 0,'Y': 1,'F': 2,'K': 3,'V': 4,'C': 5,
@@ -88,6 +116,9 @@ def make_one_hot_data_list(dataset, max_seq_len, transformer_input, return_prote
         return one_hot_dataset, proteins
     else:
         return one_hot_dataset
+    
+
+
 
 
     

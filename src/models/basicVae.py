@@ -26,11 +26,12 @@ class LitBasicVae(pl.LightningModule):
 
         # Activation Functions
         self.relu = nn.ReLU()
-        self.soft = nn.Softmax()
+        self.soft = nn.Softmax(dim=2)
         self.dropout_layer = nn.Dropout(dropout)
 
         # Encoder 
-        self.fc1_enc = nn.Linear(self.input_dim, self.hidden_dim)
+        input_dim = seq_len*amino_acids
+        self.fc1_enc = nn.Linear(input_dim, self.hidden_dim)
         self.fc3_enc_mean = nn.Linear(self.hidden_dim, latent_dim)
         self.fc3_enc_logvar = nn.Linear(self.hidden_dim, latent_dim)
 
@@ -48,7 +49,7 @@ class LitBasicVae(pl.LightningModule):
         Returns:
             tuple: Reparameterized latent vector, mean, log variance, and reconstructed input.
         """
-        x = x.view(-1,self.input_dim)
+        # x = x.view(-1,self.input_dim)
         reparam_z, x_mu, x_logvar = self.encode(x)
         x_rec, logit = self.decode(reparam_z)
         return reparam_z, x_mu, x_logvar, x_rec, logit
@@ -63,6 +64,9 @@ class LitBasicVae(pl.LightningModule):
         Returns:
             tuple: Reparameterized latent vector, mean, and log variance.
         """
+
+        x = x.reshape(-1,self.seq_len*self.amino_acids)
+
         x = self.relu(self.fc1_enc(x))
         x_mu = self.relu(self.fc3_enc_mean(x))
         x_logvar = self.relu(self.fc3_enc_logvar(x))

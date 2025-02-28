@@ -5,7 +5,7 @@ from src.utils.data_utils import *
 class SequenceDataset(Dataset):
     """One Hot Encoded Sequence dataset either for Transformer or MLP model input."""
 
-    def __init__(self, protein_shake_dataset, max_seq_len, transformer_input = False, return_proteins = True):
+    def __init__(self, protein_shake_dataset, max_seq_len, transformer_input = False, return_proteins = False):
         """
         Arguments:
             csv_file (string): Path to the csv file with annotations.

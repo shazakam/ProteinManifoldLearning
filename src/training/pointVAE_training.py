@@ -1,7 +1,7 @@
 import yaml
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
-from ..models.basicVae import LitBasicVae 
+from ..models.pointNetVae import PointNetVAE 
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from ..dataset_classes.sequenceDataset import *
@@ -32,17 +32,17 @@ def get_optimizer(optimizer):
 
 
 def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, dataset_name, beta):
-    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [2, 16, 32, 64, 128])
-    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [512, 1024, 2048])
-    dropout_suggestion = trial.suggest_float("dropout_suggesstion",0,0.3, step = 0.1)
-    beta_suggestion = beta
+    # latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [2, 16, 32, 64, 128])
+    # hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [512, 1024, 2048])
+    # dropout_suggestion = trial.suggest_float("dropout_suggesstion",0,0.3, step = 0.1)
+    # beta_suggestion = beta
 
     # Model Checkpoints and saving
     checkpoint_callback = ModelCheckpoint(
     monitor='val_loss',
     save_top_k=1,
     mode = 'min',
-    dirpath=f'trained_models/{dataset_name}/optimise_bvae/{trial.study.study_name}/',  # Folder to save checkpoints
+    dirpath=f'trained_models/{dataset_name}/optimise_point_vae/{trial.study.study_name}/',  # Folder to save checkpoints
     filename=f'{trial.study.study_name}_{trial.number}',   # Checkpoint file name
     )
 
@@ -55,11 +55,11 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
     )   
 
     # Define Model and Trainer
-    log_dir = f'experiments/training_logs/latent_BVAE/{trial.study.study_name}'
+    log_dir = f'experiments/training_logs/latent_PointVAE/{trial.study.study_name}'
     trainer = pl.Trainer(max_epochs = 100,
         accelerator="auto",
         devices="auto",
-        logger=TensorBoardLogger(save_dir=log_dir, name= f'optimise_bvae_trial_{trial.number}'),
+        logger=TensorBoardLogger(save_dir=log_dir, name= f'optimise_point_vae_trial_{trial.number}'),
         callbacks=[early_stop_callback, checkpoint_callback],
         log_every_n_steps = 20
         )
@@ -68,14 +68,7 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
     optimizer = torch.optim.AdamW
     optimzer_param = {'lr':0.001}
 
-    model = LitBasicVae(latent_dim = latent_dim_suggestion, 
-                        optimizer = optimizer, 
-                        optimizer_param = optimzer_param,
-                        seq_len = max_seq_len, 
-                        amino_acids = 21, 
-                        hidden_dim = hidden_dim_suggestion,
-                        beta = beta_suggestion,
-                        dropout = dropout_suggestion)
+    model = PointNetVAE()
 
     
     trainer.fit(model, seq_train_dataloader, seq_val_dataloader)
@@ -89,15 +82,10 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
 if __name__ == "__main__":
     # config = load_config("src/training/training_config.yaml")
 
-    # # Specify Experiment / Model Training Configs
-    # bvae_exp = input('Enter: <experiment_type>, <experiment_name> ')
-    # bvae_exp = bvae_exp.split(',')
-    # exp_config = config['basic_vae'][bvae_exp[0]][bvae_exp[1]]
-    # model_name = exp_config['model']
-
     dataset_name = input('Dataset ')
     beta = input('Beta ')
     beta = float(beta)
+
     # Set random seed for reproducibility
     torch.manual_seed(42)
     
@@ -128,7 +116,7 @@ if __name__ == "__main__":
 
     # Run Optuna study
     print('Creating Study')
-    study = optuna.create_study(study_name=f'{dataset_name}_B{beta}_BasicVAE_HyperParam_Tuning_v1', direction="minimize")
+    study = optuna.create_study(study_name=f'{dataset_name}_B{beta}_PointVAE_HyperParam_Tuning_v1', direction="minimize")
     study.optimize(lambda trial: objective(trial, seq_train_dataloader=seq_train_dataloader, 
                                            seq_val_dataloader = seq_val_dataloader, 
                                            max_seq_len = max_seq_len, 
@@ -145,15 +133,14 @@ if __name__ == "__main__":
 
     importance = optuna.importance.get_param_importances(study)
     df_importance = pd.DataFrame(importance.items(), columns=["Hyperparameter", "Importance"])
-    csv_filename = f'experiments/training_logs/latent_BVAE/{study.study_name}/{study.study_name}_himportance.csv'
+    csv_filename = f'experiments/training_logs/latent_PointVAE/{study.study_name}/{study.study_name}_himportance.csv'
     df_importance.to_csv(csv_filename, index=False)
 
     # Convert study results to a DataFrame
     df_results = study.trials_dataframe()
 
     # Save to CSV
-    csv_filename = f"experiments/training_logs/latent_BVAE/{study.study_name}/{study.study_name}_study_results.csv"
+    csv_filename = f"experiments/training_logs/latent_PointVAE/{study.study_name}/{study.study_name}_study_results.csv"
     df_results.to_csv(csv_filename, index=False)
 
     print(f"Saved hyperparameter importance to {csv_filename}")
-

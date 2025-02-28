@@ -1,10 +1,8 @@
-import torch
 import torch.nn as nn
+import torch 
 import pytorch_lightning as pl
 
-from .t_net import T_NET
-
-class PointNetVAE(pl.LightningModule):
+class GraphVAE(pl.LightningModule):
     def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512, dropout = 0.4, beta = 1):
 
         super().__init__()
@@ -18,35 +16,6 @@ class PointNetVAE(pl.LightningModule):
         self.amino_acids = amino_acids
         self.input_dim = self.amino_acids*self.seq_len
 
-        self.input_t_net = T_NET(dim = 3, seq_len = seq_len)
-        self.feature_t_net = T_NET(dim = 64, seq_len = seq_len)
-
-        # FIRST SHARED LAYER
-        self.shared_conv1d_1 = nn.Conv1d(in_channels = 3, out_channels = 64, kernel_size = 1)
-        self.shared_conv1d_2 = nn.Conv1d(in_channels = 64, out_channels = 64, kernel_size = 1)
-
-
-        # SECOND SHARED LAYER
-        self.shared_conv1d_3 = nn.Conv1d(in_channels = 64, out_channels = 64, kernel_size = 1)
-        self.shared_conv1d_4 = nn.Conv1d(in_channels = 64, out_channels = 128, kernel_size = 1)
-        self.shared_conv1d_5 = nn.Conv1d(in_channels = 128, out_channels = self.latent_dim, kernel_size = 1)
-        self.shared_conv1d_6 = nn.Conv1d(in_channels = 128, out_channels = self.latent_dim, kernel_size = 1)
-
-        self.bn1 = nn.BatchNorm1d(64)
-        self.bn2 = nn.BatchNorm1d(64)
-        self.bn3 = nn.BatchNorm1d(64)
-        self.bn4 = nn.BatchNorm1d(128)
-        self.bn5 = nn.BatchNorm1d(self.latent_dim)
-        self.bn6 = nn.BatchNorm1d(self.latent_dim)
-
-        self.relu = nn.ReLU()
-        self.max_pool = nn.MaxPool1d(kernel_size = seq_len)
-
-        # DECODER Layers 
-        self.fc1_dec = nn.Linear(self.latent_dim, self.hidden_dim)
-        self.fc2_dec = nn.Linear(self.hidden_dim, self.hidden_dim)
-        self.fc3_dec = nn.Linear(self.hidden_dim,self.seq_len*3)
-
 
     def forward(self, x):
 
@@ -56,31 +25,7 @@ class PointNetVAE(pl.LightningModule):
         return reparam_z, x_mu, x_logvar, x_rec
 
     def encode(self, x):
-        # X has shape (batch, seq_len, 3)
-        # Input Transform
-        x = x.permute(0,2,1) # (B,3,S)
-        t_net_transform  = self.input_t_net(x)
-        x = torch.bmm(t_net_transform, x)
-        print(x.shape)
-        # Shared MLP
-        x = self.bn1(self.relu(self.shared_conv1d_1(x)))
-        print(x.shape)
-        x = self.bn2(self.relu(self.shared_conv1d_2(x)))
-        print(x.shape)
-        # Feature Transform
-        t_net_feature_transform = self.feature_t_net(x)
-        x = torch.bmm(t_net_feature_transform, x)
-        print(x.shape)
-        
-        # Shared MLP
-        x = self.bn3(self.relu(self.shared_conv1d_3(x)))
-        x = self.bn4(self.relu(self.shared_conv1d_4(x)))
-        x_mu = self.bn5(self.relu(self.shared_conv1d_5(x)))
-        x_logvar = self.bn6(self.relu(self.shared_conv1d_6(x)))
 
-        # Split off for mean and variance of approximated distribution
-        x_mu = self.max_pool(x_mu)
-        x_logvar = self.max_pool(x_logvar)
 
         reparam_z = self.reparametrisation(x_mu, x_logvar)
 
@@ -88,10 +33,6 @@ class PointNetVAE(pl.LightningModule):
 
     def decode(self, z):
         
-        z = self.relu(self.fc1_dec(z))
-        z = self.relu(self.fc2_dec(z))
-        z = self.fc3_dec(z)
-        z = z.reshape(-1,self.seq_len, 3)
 
         return z
 
@@ -110,10 +51,10 @@ class PointNetVAE(pl.LightningModule):
 
         return (rec_loss + self.beta*KL_loss) / x.size(0), rec_loss/ x.size(0), KL_loss/ x.size(0)
     
-    def chamfer_distance(self,x,x_reconstructed):
-        pairwise_dist = torch.cdist(x, x_reconstructed, p = 2)
-        loss = torch.sum(torch.min(pairwise_dist, dim= -1)[0], dim = -1) + torch.sum(torch.min(pairwise_dist, dim= -2)[0], dim = -1)
-        return loss
+    # def chamfer_distance(self,x,x_reconstructed):
+    #     pairwise_dist = torch.cdist(x, x_reconstructed, p = 2)
+    #     loss = torch.sum(torch.min(pairwise_dist, dim= -1)[0], dim = -1)
+    #     return loss
     
     def training_step(self, batch, batch_idx):
 
