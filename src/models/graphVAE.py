@@ -1,6 +1,8 @@
 import torch.nn as nn
 import torch 
 import pytorch_lightning as pl
+import torch_geometric
+from torch_geometric.nn import GAE, VGAE, GCNConv
 
 class GraphVAE(pl.LightningModule):
     def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512, dropout = 0.4, beta = 1):
@@ -16,6 +18,9 @@ class GraphVAE(pl.LightningModule):
         self.amino_acids = amino_acids
         self.input_dim = self.amino_acids*self.seq_len
 
+        self.conv_mu = GCNConv(3, latent_dim)
+        self.conv_logstd = GCNConv(3, latent_dim)
+
 
     def forward(self, x):
 
@@ -25,6 +30,8 @@ class GraphVAE(pl.LightningModule):
         return reparam_z, x_mu, x_logvar, x_rec
 
     def encode(self, x):
+        x_mu = self.conv_mu(x)
+        x_logvar = self.conv_logstd(x)
 
 
         reparam_z = self.reparametrisation(x_mu, x_logvar)

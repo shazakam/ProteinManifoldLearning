@@ -24,6 +24,8 @@ class LitBasicVae(pl.LightningModule):
         self.amino_acids = amino_acids
         self.input_dim = self.amino_acids*self.seq_len
 
+        self.log("beta", beta, logger=True)
+
         # Activation Functions
         self.relu = nn.ReLU()
         self.soft = nn.Softmax(dim=2)

@@ -32,10 +32,10 @@ def get_optimizer(optimizer):
 
 
 def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, dataset_name, beta):
-    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [2, 16, 32, 64, 128])
-    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [512, 1024, 2048])
-    dropout_suggestion = trial.suggest_float("dropout_suggesstion",0,0.3, step = 0.1)
-    beta_suggestion = beta
+    latent_dim_suggestion = 128 #trial.suggest_categorical("latent_dim_suggestion", [2, 16, 32, 64, 128])
+    hidden_dim_suggestion = 2048 #trial.suggest_categorical("hidden_dim_suggestion", [512, 1024, 2048])
+    dropout_suggestion = 0.3 #trial.suggest_float("dropout_suggesstion",0,0.3, step = 0.1)
+    beta_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [1, 5, 10, 20])
 
     # Model Checkpoints and saving
     checkpoint_callback = ModelCheckpoint(
@@ -87,13 +87,6 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
 
 # Main function to run experiments
 if __name__ == "__main__":
-    # config = load_config("src/training/training_config.yaml")
-
-    # # Specify Experiment / Model Training Configs
-    # bvae_exp = input('Enter: <experiment_type>, <experiment_name> ')
-    # bvae_exp = bvae_exp.split(',')
-    # exp_config = config['basic_vae'][bvae_exp[0]][bvae_exp[1]]
-    # model_name = exp_config['model']
 
     dataset_name = input('Dataset ')
     beta = input('Beta ')
@@ -128,12 +121,12 @@ if __name__ == "__main__":
 
     # Run Optuna study
     print('Creating Study')
-    study = optuna.create_study(study_name=f'{dataset_name}_B{beta}_BasicVAE_HyperParam_Tuning_v1', direction="minimize")
+    study = optuna.create_study(study_name=f'{dataset_name}_BetaStudy_BasicVAE_HyperParam_Tuning_v1', direction="minimize")
     study.optimize(lambda trial: objective(trial, seq_train_dataloader=seq_train_dataloader, 
                                            seq_val_dataloader = seq_val_dataloader, 
                                            max_seq_len = max_seq_len, 
                                            dataset_name = dataset_name, 
-                                           beta = beta), n_trials=50)
+                                           beta = beta), n_trials=5)
 
     print("Best trial:")
     trial = study.best_trial

@@ -35,31 +35,58 @@ def get_max_seq_len(dataset):
 
 def filter_by_max_length_and_pad(dataset, max_seq_len, return_proteins = False):
     proteins = []
+    data_list = []
+
+    for sample in dataset:
+        data_list.append(sample[0][:,:3])
+
+    xyz_mean = torch.mean(torch.concatenate(data_list, dim = 0), dim = 0)
+    xyz_std = torch.std(torch.concatenate(data_list, dim = 0), dim = 0)
+
+
 
     if return_proteins:
         org_protein_data = []
         for sample in tqdm(dataset):
             seq_leng = len(sample[1]['protein']['sequence'])
             if seq_leng <= max_seq_len:
-                proteins.append(pad_cloud_data(sample[0], max_seq_len))
+                padded_data = pad_cloud_data(sample[0], max_seq_len)
+                padded_data[:,:3] = (padded_data[:,:3] - xyz_mean) / xyz_std
+                proteins.append(padded_data)
                 org_protein_data.append(sample)
+
         return proteins, org_protein_data
     
     else:
         for sample in tqdm(dataset):
             seq_leng = len(sample[1]['protein']['sequence'])
             if seq_leng <= max_seq_len:
-                proteins.append(pad_cloud_data(sample[0], max_seq_len))
+                padded_data = pad_cloud_data(sample[0], max_seq_len)
+                padded_data[:,:3] = (padded_data[:,:3] - xyz_mean) / xyz_std
+                proteins.append(padded_data)
         return proteins
+
+    
     
 def pad_cloud_data(sample, max_seq_len):
-    num_pads = max_seq_len - sample.shape[0]
-    padding = torch.zeros((num_pads, sample.shape[1]))
-    padded = torch.concatenate([sample, padding], dim = 0)
+    coords = sample[:,:3]
+    coords = center_point_cloud(coords)
+
+    labels = sample[:,3]
+    coords = torch.nn.functional.pad(coords[:max_seq_len], (0,0,0,max(0, max_seq_len - coords.shape[0])))
+    labels = torch.nn.functional.pad(labels[:max_seq_len], (0, max(0, max_seq_len - labels.shape[0])), value=20).unsqueeze(1)
+    padded = torch.concatenate([coords, labels], dim = 1)
     return padded
 
+def center_point_cloud(pc):
+    center = torch.mean(pc, dim = 0)
+    centered_pc = pc - center
+    return centered_pc
 
-
+def scale_cloud_data(pc):
+    scaling_const = torch.sqrt(torch.max(torch.sum(pc**2), dim = -1).values)
+    pc = pc / scaling_const
+    return pc
 
 def one_hot_encode_seq(seq, max_seq_len, transformer_input = False, convert_to_tensor=True):
 

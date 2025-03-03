@@ -3,25 +3,27 @@ import torch
 
 class T_NET(nn.Module):
     
-    def __init__(self, dim, seq_len = 500):
+    def __init__(self, dim, embed_dim = 64, seq_len = 500):
         super().__init__()
         self.dim = dim
-        self.conv1 = nn.Conv1d(dim, 64, kernel_size=1)
-        self.conv2 = nn.Conv1d(64,128, kernel_size=1)
-        self.conv3 = nn.Conv1d(128,1024,kernel_size=1)
+        self.conv1 = nn.Conv1d(dim, embed_dim, kernel_size=1)
+        self.conv2 = nn.Conv1d(embed_dim, 2*embed_dim, kernel_size=1)
+        self.conv3 = nn.Conv1d(2*embed_dim, embed_dim*8,kernel_size=1)
 
-        self.fc1 = nn.Linear(1024,512)
-        self.fc2 = nn.Linear(512,256)
-        self.fc3 = nn.Linear(256,dim**2)
+        self.fc1 = nn.Linear(embed_dim*8,2*embed_dim)
+        self.fc2 = nn.Linear(2*embed_dim,embed_dim)
+        self.fc3 = nn.Linear(embed_dim, dim**2)
 
-        self.bn1 = nn.BatchNorm1d(64)
-        self.bn2 = nn.BatchNorm1d(128)
-        self.bn3 = nn.BatchNorm1d(1024)
-        self.bn4 = nn.BatchNorm1d(512)
-        self.bn5 = nn.BatchNorm1d(256)
+        self.bn1 = nn.BatchNorm1d(embed_dim)
+        self.bn2 = nn.BatchNorm1d(embed_dim*2)
+        self.bn3 = nn.BatchNorm1d(embed_dim*8)
+        self.bn4 = nn.BatchNorm1d(embed_dim*2)
+        self.bn5 = nn.BatchNorm1d(embed_dim)
 
         self.max_pool = nn.MaxPool1d(kernel_size = seq_len)
         self.relu = nn.ReLU()
+
+        self.register_buffer('id', torch.eye(dim))
 
 
     def forward(self, x):
@@ -36,10 +38,7 @@ class T_NET(nn.Module):
         x = self.bn5(self.relu(self.fc2(x)))
         x = self.fc3(x)
 
-        id = torch.eye(self.dim, requires_grad=True).repeat(batch_size,  1, 1)
-
-        id.to(x.device)
-
+        id = self.id.repeat(batch_size,1,1)
         x = x.view(-1,self.dim, self.dim) + id
 
         return x
