@@ -90,10 +90,10 @@ def scale_cloud_data(pc):
 
 def one_hot_encode_seq(seq, max_seq_len, transformer_input = False, convert_to_tensor=True):
 
-    amino_encoding_dict = {'S': 0,'Y': 1,'F': 2,'K': 3,'V': 4,'C': 5,
-                            'A': 6,'H': 7,'T': 8,'I': 9,'W': 10,'R': 11,
-                            'P': 12,'L': 13,'G': 14,'N': 15,'E': 16,
-                            'Q': 17,'M': 18,'D': 19, 'X':20}
+    amino_encoding_dict = {'A': 0,'R': 1,'N': 2,'D': 3,'C': 4,'E': 5,
+                            'Q': 6,'G': 7,'H': 8,'I': 9,'L': 10,'K': 11,
+                            'M': 12,'F': 13,'P': 14,'S': 15,'T': 16,
+                            'W': 17,'Y': 18,'V': 19, 'X':20}
     
     one_hot_idx_list = []
     one_hot_encoded_list = []

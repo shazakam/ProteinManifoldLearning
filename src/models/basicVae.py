@@ -113,7 +113,7 @@ class LitBasicVae(pl.LightningModule):
     def ELBO(self, x, logit, x_mu, x_logvar):
 
         x_true_indices = x.argmax(dim=-1)
-        rec_loss =  torch.nn.functional.cross_entropy(logit.permute(0,2,1),x_true_indices, reduction='sum')
+        rec_loss =  torch.nn.functional.cross_entropy(logit.permute(0,2,1),x_true_indices, reduction='sum', ignore_index=21)
         KL_loss = -0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp())
         
         return (rec_loss + self.beta*KL_loss) / x.size(0), rec_loss/ x.size(0), KL_loss/ x.size(0)

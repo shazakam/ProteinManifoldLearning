@@ -186,7 +186,3 @@ class PointNetVAE(pl.LightningModule):
     
     def on_train_epoch_end(self):
         self.log("learning_rate", self.trainer.optimizers[0].param_groups[0]['lr'], prog_bar=True)
-
-        # for name, param in self.named_parameters():
-        #     if param.requires_grad:
-        #         self.logger.experiment.add_histogram(f"weights/{name}", param, self.current_epoch)
