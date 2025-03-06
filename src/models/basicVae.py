@@ -4,15 +4,7 @@ import pytorch_lightning as pl
 
 class LitBasicVae(pl.LightningModule):
     def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512, dropout = 0.4, beta = 1):
-        """
-        Initialize the BasicVae model.
 
-        Args:
-            latent_dim (int): Dimension of the latent space.
-            input_dimension (int): Dimension of the input data.
-            device (torch.device): Device to run the model on (e.g., 'cpu' or 'cuda').
-            hidden_dim (int, optional): Dimension of the hidden layers. Default is 512.
-        """
         super().__init__()
         self.save_hyperparameters()
         self.beta = beta
@@ -22,7 +14,7 @@ class LitBasicVae(pl.LightningModule):
         self.optimizer_param = optimizer_param
         self.seq_len = seq_len
         self.amino_acids = amino_acids
-        self.input_dim = self.amino_acids*self.seq_len
+        self.input_dim = (self.amino_acids)*self.seq_len
 
         self.log("beta", beta, logger=True)
 
@@ -32,8 +24,9 @@ class LitBasicVae(pl.LightningModule):
         self.dropout_layer = nn.Dropout(dropout)
 
         # Encoder 
-        input_dim = seq_len*amino_acids
-        self.fc1_enc = nn.Linear(input_dim, self.hidden_dim)
+        # self.conv1 = nn.Conv1d(in_channels = self.amino_acids, out_channels = 2*self.amino_acids, kernel_size = 1)
+        # self.conv2 = nn.Conv1d(in_channels = 2*self.amino_acids, out_channels = 2*self.amino_acids, kernel_size = 5, padding='same')
+        self.fc1_enc = nn.Linear(self.amino_acids*self.seq_len, self.hidden_dim)
         self.fc3_enc_mean = nn.Linear(self.hidden_dim, latent_dim)
         self.fc3_enc_logvar = nn.Linear(self.hidden_dim, latent_dim)
 
@@ -42,32 +35,20 @@ class LitBasicVae(pl.LightningModule):
         self.fc3_dec = nn.Linear(self.hidden_dim, self.input_dim)
 
     def forward(self, x):
-        """
-        Forward pass through the VAE.
 
-        Args:
-            x (torch.Tensor): Input tensor.
-
-        Returns:
-            tuple: Reparameterized latent vector, mean, log variance, and reconstructed input.
-        """
         # x = x.view(-1,self.input_dim)
+        # X has shape (B, S, A)
         reparam_z, x_mu, x_logvar = self.encode(x)
+        # Reparam, x_mu and x_logvar have shape (B, latent_dim)
         x_rec, logit = self.decode(reparam_z)
+        # x_rec and x_logit have shape (B,S,A)
         return reparam_z, x_mu, x_logvar, x_rec, logit
 
     def encode(self, x):
-        """
-        Encode the input into the latent space.
-
-        Args:
-            x (torch.Tensor): Input tensor.
-
-        Returns:
-            tuple: Reparameterized latent vector, mean, and log variance.
-        """
-
-        x = x.reshape(-1,self.seq_len*self.amino_acids)
+        # x = self.conv1(x.permute(0,2,1))
+        # x = self.relu(x)
+        # x = self.conv2(x)
+        x = x.reshape(-1,(self.amino_acids)*self.seq_len)
 
         x = self.relu(self.fc1_enc(x))
         x_mu = self.relu(self.fc3_enc_mean(x))
@@ -77,33 +58,16 @@ class LitBasicVae(pl.LightningModule):
         return reparam_z, x_mu, x_logvar
 
     def decode(self, z):
-        """
-        Decode the latent vector back to the input space.
 
-        Args:
-            z (torch.Tensor): Latent vector.
-
-        Returns:
-            torch.Tensor: Reconstructed input.
-        """
-        z = self.relu(self.fc1_dec(z))
-        logit = self.fc3_dec(z)
+        z = self.dropout_layer(self.relu(self.fc1_dec(z)))
+        logit = self.dropout_layer(self.fc3_dec(z))
         logit = logit.reshape(-1,self.seq_len, self.amino_acids)
         z = self.soft(logit)
 
         return z, logit
 
     def reparametrisation(self, x_mu, x_logvar):
-        """
-        Reparameterize the latent vector using the mean and log variance.
 
-        Args:
-            x_mu (torch.Tensor): Mean of the latent vector.
-            x_logvar (torch.Tensor): Log variance of the latent vector.
-
-        Returns:
-            torch.Tensor: Reparameterized latent vector.
-        """
         std = torch.exp(0.5 * x_logvar)
         eps = torch.randn_like(std) 
         z_new = x_mu + eps*(std)
@@ -111,63 +75,43 @@ class LitBasicVae(pl.LightningModule):
         return z_new
     
     def ELBO(self, x, logit, x_mu, x_logvar):
-
+        # X and logit have shape (B, S, A)
+        # x_mu and x_logvar have shape (B, latent_dim)
+        
+        # X true indices contains index locations of true labels
         x_true_indices = x.argmax(dim=-1)
-        rec_loss =  torch.nn.functional.cross_entropy(logit.permute(0,2,1),x_true_indices, reduction='sum', ignore_index=21)
+
+        # Permute logit to shape (B, A, S) for cross entropy function and ignore index 21 (padding value)
+        rec_loss =  torch.nn.functional.cross_entropy(logit.permute(0,2,1),x_true_indices, reduction='sum', ignore_index=20)
         KL_loss = -0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp())
         
         return (rec_loss + self.beta*KL_loss) / x.size(0), rec_loss/ x.size(0), KL_loss/ x.size(0)
     
     def training_step(self, batch, batch_idx):
-        """
-        Training step for the VAE.
 
-        Args:
-            batch (tuple): Batch of data.
-            batch_idx (int): Batch index.
-
-        Returns:
-            torch.Tensor: Training loss.
-        """
         x = batch
         rep_z, x_mu, x_logvar, x_rec, logit = self(x)
         loss, rec_loss, KL_loss = self.ELBO(x, logit, x_mu, x_logvar)
 
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("average_train_epoch_rec_loss", rec_loss, on_epoch=True, on_step=False, prog_bar=True)
-        self.log("average_train_epoch_KL_loss", KL_loss, on_epoch=True, on_step=False, prog_bar=True)
+        self.log("train_rec_loss", rec_loss, on_epoch=True, on_step=False, prog_bar=True)
+        self.log("train_KL_loss", KL_loss, on_epoch=True, on_step=False, prog_bar=True)
      
         return loss
     
     def validation_step(self, batch, batch_idx):
-        """
-        Validation step for the VAE.
-
-        Args:
-            batch (tuple): Batch of data.
-            batch_idx (int): Batch index.
-
-        Returns:
-            torch.Tensor: Validation loss.
-        """
 
         x = batch
         rep_z, x_mu, x_logvar, x_rec, logit = self(x)
         loss, rec_loss, KL_loss = self.ELBO(x, logit,x_mu, x_logvar)
 
         self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("average_val_epoch_rec_loss", rec_loss, on_epoch=True, on_step=False, prog_bar=True)
-        self.log("average_val_epoch_KL_loss", KL_loss, on_epoch=True, on_step=False, prog_bar=True)
+        self.log("val_rec_loss", rec_loss, on_epoch=True, on_step=False, prog_bar=True)
+        self.log("val_KL_loss", KL_loss, on_epoch=True, on_step=False, prog_bar=True)
 
         return loss
     
     def configure_optimizers(self):
-        """
-        Configure the optimizer for training.
-
-        Returns:
-            torch.optim.Optimizer: Optimizer.
-        """
 
         optimizer = self.optimizer(self.parameters(), **self.optimizer_param)
 
