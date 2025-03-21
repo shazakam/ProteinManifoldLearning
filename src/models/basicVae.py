@@ -51,8 +51,7 @@ class LitBasicVae(pl.LightningModule):
     def encode(self, x):
 
         x = x.reshape(-1,self.amino_acids*self.seq_len)
-        x = self.tanh(self.fc1_enc(x))
-        x = self.bn1(x)
+        x = self.tanh(self.bn1(self.fc1_enc(x)))
 
         x_mu = self.tanh(self.fc3_enc_mean(x))
         x_logvar = self.tanh(self.fc3_enc_logvar(x))
@@ -62,11 +61,8 @@ class LitBasicVae(pl.LightningModule):
 
     def decode(self, z):
 
-        z = self.dropout_layer(self.tanh(self.fc1_dec(z)))
-        z = self.bn2(z) 
-
-        logit = self.dropout_layer(self.fc3_dec(z))
-        logit = self.bn3(logit)
+        z = self.dropout_layer(self.tanh(self.bn2(self.fc1_dec(z))))
+        logit = self.dropout_layer(self.bn3(self.fc3_dec(z)))
         logit = logit.reshape(-1,self.seq_len, self.amino_acids)
 
         z = self.soft(logit)
