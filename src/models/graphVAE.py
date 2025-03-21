@@ -5,7 +5,7 @@ import torch_geometric
 from torch_geometric.nn import GAE, VGAE, GCNConv, TopKPooling, global_mean_pool
 
 class GraphVAE(pl.LightningModule):
-    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, conv_hidden_dim = 64, hidden_dim=512, dropout = 0.4, beta = 1, reconstruction_loss_weight = 0.1):
+    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, conv_hidden_dim = 64, hidden_dim=512, beta = 1, reconstruction_loss_weight = 1):
 
         super().__init__()
         self.save_hyperparameters()
@@ -22,7 +22,7 @@ class GraphVAE(pl.LightningModule):
         # self.k_pooling = k_pooling
 
         # Encoder
-        self.conv1 = GCNConv(self.amino_acids, self.conv_hidden_dim)
+        self.conv1 = GCNConv(self.amino_acids-1, self.conv_hidden_dim)
         self.conv2 = GCNConv(self.conv_hidden_dim, 2*self.conv_hidden_dim)
         # self.topk_pool = TopKPooling(2*self.conv_hidden_dim, ratio=int(self.k_pooling))
         self.fc_mu = nn.Linear(2*self.conv_hidden_dim, self.latent_dim)
@@ -33,7 +33,7 @@ class GraphVAE(pl.LightningModule):
         self.fc3_dec = nn.Linear(hidden_dim, self.input_dim)
 
         # Activation Functions
-        self.relu = nn.ReLU()
+        self.tanh = nn.Tanh()
         self.soft = nn.Softmax(dim=-1)
 
 
@@ -50,9 +50,9 @@ class GraphVAE(pl.LightningModule):
         x_batch = x.batch
 
         x = self.conv1(x_f, x_edge_index)
-        x = self.relu(x)
+        x = self.tanh(x)
         x = self.conv2(x, x_edge_index)
-        x = self.relu(x)
+        x = self.tanh(x)
         # x, edge_index, _, batch, _, _ = self.topk_pool(x, x_edge_index, None, x_batch)
         x = global_mean_pool(x, x_batch)
         # x = x.view(-1, )
@@ -64,8 +64,7 @@ class GraphVAE(pl.LightningModule):
         return reparam_z.squeeze(), x_mu.squeeze(), x_logvar.squeeze()
 
     def decode(self, z):
-        
-        z = self.relu(self.fc1_dec(z))
+        z = self.tanh(self.fc1_dec(z))
         logit = self.fc3_dec(z)
         logit = logit.reshape(-1,self.seq_len, self.amino_acids)
         z = self.soft(logit)
@@ -134,7 +133,7 @@ class GraphVAE(pl.LightningModule):
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "monitor": "val_elbo_loss_epoch",  # Reduce LR based on validation loss
+                "monitor": "val_loss",  # Reduce LR based on validation loss
                 "interval": "epoch",  # Step every epoch
                 "frequency": 1,  
             }

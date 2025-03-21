@@ -10,6 +10,7 @@ from proteinshake.datasets import ProteinLigandInterfaceDataset, AlphaFoldDatase
 import sys
 import random
 import optuna
+import pandas as pd
 
 # Load config
 def load_config(config_file="config.yaml"):

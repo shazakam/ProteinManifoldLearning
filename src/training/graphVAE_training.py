@@ -1,16 +1,18 @@
 import yaml
 import torch
-from torch.utils.data import DataLoader, Dataset, Subset
-from ..models.basicVae import LitBasicVae 
+from torch.utils.data import Subset
+from torch_geometric.loader import DataLoader
+from ..models.graphVAE import GraphVAE 
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
-from ..dataset_classes.sequenceDataset import *
 import pytorch_lightning as pl
 from proteinshake.datasets import ProteinLigandInterfaceDataset, AlphaFoldDataset, GeneOntologyDataset, ProteinFamilyDataset
 import sys
 import random
 import optuna
+from src.dataset_classes.graphDataset import *
 import pandas as pd
+
 # Load config
 def load_config(config_file="config.yaml"):
     with open(config_file, "r") as file:
@@ -31,19 +33,19 @@ def get_optimizer(optimizer):
     return optimizer
 
 
-def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, dataset_name):
+def objective(trial, graph_train_dataloader, graph_val_dataloader, dataset_name):
     latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [2, 16, 32, 64, 128, 256])
-    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [256, 512, 1024, 2048])
-    # dropout_suggestion = trial.suggest_float("dropout_suggesstion",0,0.3, step = 0.1)
+    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [256, 512, 1024])
     beta_suggestion = trial.suggest_categorical("beta_suggestion", [1, 5, 10, 20])
+    conv_hidden_dim_suggestion = trial.suggest_categorical("conv_hidden_suggestion", [32, 64, 128, 256, 512])
 
     # Model Checkpoints and saving
     checkpoint_callback = ModelCheckpoint(
     monitor='val_loss',
     save_top_k=1,
     mode = 'min',
-    dirpath=f'trained_models/{dataset_name}/optimise_bvae/{trial.study.study_name}/',  # Folder to save checkpoints
-    filename=f'{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_suggestion}',   # Checkpoint file name
+    dirpath=f'trained_models/{dataset_name}/optimise_graphvae/{trial.study.study_name}/',  # Folder to save checkpoints
+    filename=f'{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_suggestion}_GCH{conv_hidden_dim_suggestion}',   # Checkpoint file name
     )
 
     # Early Stopping to avoid overfitting
@@ -55,30 +57,30 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
     )   
 
     # Define Model and Trainer
-    log_dir = f'experiments/training_logs/latent_BVAE/{trial.study.study_name}'
+    log_dir = f'experiments/training_logs/latent_GraphVAE/{trial.study.study_name}'
     trainer = pl.Trainer(max_epochs = 100,
         accelerator="auto",
         devices="auto",
-        logger=TensorBoardLogger(save_dir=log_dir, name= f'BVAE_{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_suggestion}'),
+        logger=TensorBoardLogger(save_dir=log_dir, name= f'GraphVAE_{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_suggestion}_GCH{conv_hidden_dim_suggestion}'),
         callbacks=[early_stop_callback, checkpoint_callback],
         log_every_n_steps = 20
         )
     
     # Initialise Optimizer, Model anad begin training
     optimizer = torch.optim.AdamW
-    optimzer_param = {'lr':0.001}
+    optimizer_param = {'lr':0.001}
 
-    model = LitBasicVae(latent_dim = latent_dim_suggestion, 
-                        optimizer = optimizer, 
-                        optimizer_param = optimzer_param,
-                        seq_len = max_seq_len, 
-                        amino_acids = 21, 
-                        hidden_dim = hidden_dim_suggestion,
-                        beta = beta_suggestion,
-                        dropout = 0)
+    model = GraphVAE(latent_dim = latent_dim_suggestion, 
+                     optimizer = optimizer, 
+                     optimizer_param = optimizer_param, 
+                     seq_len = 500, 
+                     amino_acids = 21, 
+                     conv_hidden_dim = conv_hidden_dim_suggestion, 
+                     hidden_dim=hidden_dim_suggestion, 
+                     beta = beta_suggestion)
 
     
-    trainer.fit(model, seq_train_dataloader, seq_val_dataloader)
+    trainer.fit(model, graph_train_dataloader, graph_val_dataloader)
 
     
     # Return the final training loss
@@ -95,13 +97,13 @@ if __name__ == "__main__":
     
     # Load Data
     if dataset_name== 'ProteinLigand':
-        dataset = ProteinLigandInterfaceDataset(root='data').to_point().torch()
+        dataset = ProteinLigandInterfaceDataset(root='data').to_graph(eps = 8).pyg()
     elif dataset_name == 'AlphaFold':
-        dataset = AlphaFoldDataset(root='data').to_point().torch()
+        dataset = AlphaFoldDataset(root='data').to_graph(eps = 8).pyg()
     elif dataset_name == 'GO':
-        dataset = GeneOntologyDataset(root='data').to_point().torch()
+        dataset = GeneOntologyDataset(root='data').to_graph(eps = 8).pyg()
     elif dataset_name == 'Pfam':
-        dataset = ProteinFamilyDataset(root='data').to_point().torch()
+        dataset = ProteinFamilyDataset(root='data').to_graph(eps = 8).pyg()
     else:
         print('Other datasets not used at the moment')
         sys.exit()
@@ -114,18 +116,17 @@ if __name__ == "__main__":
 
     BATCH_SIZE = 128
     n_trials = 3
+
     # Create data subsets
-    train_subset = SequenceDataset(Subset(dataset, train_idx), max_seq_len)
-    val_subset = SequenceDataset(Subset(dataset, val_idx), max_seq_len)
-    seq_train_dataloader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=True)
-    seq_val_dataloader = DataLoader(val_subset, batch_size=BATCH_SIZE, shuffle=True)
+    dataset = load_graph_data(dataset)
+    graph_train_dataloader = DataLoader(Subset(dataset, train_idx).dataset, batch_size=BATCH_SIZE, shuffle=True)
+    graph_val_dataloader = DataLoader(Subset(dataset, train_idx).dataset,batch_size=BATCH_SIZE, shuffle=False)
 
     # Run Optuna study
     print('Creating Study')
-    study = optuna.create_study(study_name=f'{dataset_name}_BasicVAE_study_BS{BATCH_SIZE}_MS{max_seq_len}_trials{n_trials}', direction="minimize")
-    study.optimize(lambda trial: objective(trial, seq_train_dataloader=seq_train_dataloader, 
-                                           seq_val_dataloader = seq_val_dataloader, 
-                                           max_seq_len = max_seq_len, 
+    study = optuna.create_study(study_name=f'{dataset_name}_GraphVAE_study_BS{BATCH_SIZE}_MS{max_seq_len}_trials{n_trials}', direction="minimize")
+    study.optimize(lambda trial: objective(trial, graph_train_dataloader = graph_train_dataloader, 
+                                           graph_val_dataloader = graph_val_dataloader,  
                                            dataset_name = dataset_name), n_trials=n_trials)
 
     print("Best trial:")
@@ -138,15 +139,14 @@ if __name__ == "__main__":
 
     importance = optuna.importance.get_param_importances(study)
     df_importance = pd.DataFrame(importance.items(), columns=["Hyperparameter", "Importance"])
-    csv_filename = f'experiments/training_logs/latent_BVAE/{study.study_name}/{study.study_name}_himportance.csv'
+    csv_filename = f'experiments/training_logs/latent_GraphVAE/{study.study_name}/{study.study_name}_himportance.csv'
     df_importance.to_csv(csv_filename, index=False)
 
     # Convert study results to a DataFrame
     df_results = study.trials_dataframe()
 
     # Save to CSV
-    csv_filename = f"experiments/training_logs/latent_BVAE/{study.study_name}/{study.study_name}_study_results.csv"
+    csv_filename = f"experiments/training_logs/latent_GraphVAE/{study.study_name}/{study.study_name}_study_results.csv"
     df_results.to_csv(csv_filename, index=False)
 
     print(f"Saved hyperparameter importance to {csv_filename}")
-
