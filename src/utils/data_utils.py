@@ -44,7 +44,6 @@ def filter_by_max_length_and_pad(dataset, max_seq_len, return_proteins = False):
     xyz_std = torch.std(torch.concatenate(data_list, dim = 0), dim = 0)
 
 
-
     if return_proteins:
         org_protein_data = []
         for sample in tqdm(dataset):
@@ -122,7 +121,7 @@ def make_one_hot_data_list(dataset, max_seq_len, transformer_input, return_prote
 
     for sample in tqdm(dataset):
 
-        if len(sample[1]['protein']['sequence']) > max_seq_len:
+        if len(sample[1]['protein']['sequence']) > max_seq_len or len(sample[1]['protein']['sequence']):
             continue
 
         else:

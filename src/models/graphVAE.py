@@ -5,7 +5,7 @@ import torch_geometric
 from torch_geometric.nn import GAE, VGAE, GCNConv, TopKPooling, global_mean_pool
 
 class GraphVAE(pl.LightningModule):
-    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, conv_hidden_dim = 64, hidden_dim=512, dropout = 0.4, beta = 1):
+    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, conv_hidden_dim = 64, hidden_dim=512, dropout = 0.4, beta = 1, reconstruction_loss_weight = 0.1):
 
         super().__init__()
         self.save_hyperparameters()
@@ -18,6 +18,7 @@ class GraphVAE(pl.LightningModule):
         self.amino_acids = amino_acids
         self.input_dim = self.amino_acids*self.seq_len
         self.conv_hidden_dim = conv_hidden_dim
+        self.reconstruction_loss_weight = reconstruction_loss_weight
         # self.k_pooling = k_pooling
 
         # Encoder
@@ -90,10 +91,10 @@ class GraphVAE(pl.LightningModule):
 
         indices_with_mask_val = torch.stack(indices_with_mask_val)
 
-        rec_loss =  torch.nn.functional.cross_entropy(logit.permute(0,2,1),indices_with_mask_val, reduction='sum', ignore_index=20)
-        KL_loss = -0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp())
+        rec_loss =  self.reconstruction_loss_weight*torch.nn.functional.cross_entropy(logit.permute(0,2,1),indices_with_mask_val, reduction='sum', ignore_index=20)
+        KL_loss = self.beta*(-0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp()))
 
-        return (rec_loss + self.beta*KL_loss) / batch_size, rec_loss/ batch_size, KL_loss/ batch_size
+        return (rec_loss + KL_loss) / batch_size, rec_loss/ batch_size, KL_loss/ batch_size
     
     
     def training_step(self, batch, batch_idx):

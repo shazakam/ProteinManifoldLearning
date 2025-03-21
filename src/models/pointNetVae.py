@@ -5,7 +5,7 @@ import pytorch_lightning as pl
 from .t_net import T_NET
 
 class PointNetVAE(pl.LightningModule):
-    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512, dropout = 0.4, beta = 1, conv_hidden_dim = 128, global_feature_size = 512, seq_embedding = 32):
+    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512, dropout = 0.4, beta = 1, conv_hidden_dim = 128, global_feature_size = 512, seq_embedding = 32, reconstruction_loss_weight = 0.1):
 
         super().__init__()
         self.save_hyperparameters()
@@ -19,6 +19,7 @@ class PointNetVAE(pl.LightningModule):
         self.input_dim = self.amino_acids*self.seq_len
         self.global_feature_size = global_feature_size
         self.seq_embedding = seq_embedding
+        self.reconstruction_loss_weight = reconstruction_loss_weight
 
         # self.input_t_net = T_NET(dim = 3, seq_len = seq_len)
         # self.feature_t_net = T_NET(dim = embed_dim, seq_len = seq_len, embed_dim = embed_dim)
@@ -150,9 +151,9 @@ class PointNetVAE(pl.LightningModule):
     def ELBO(self, x, logit, x_mu, x_logvar):
 
 
-        rec_loss =  torch.nn.functional.cross_entropy(logit.permute(0,2,1),x, reduction='sum', ignore_index=20) #torch.sum(self.chamfer_distance(x, x_reconstructed))
-        KL_loss = -0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp())
-        return (rec_loss + self.beta*KL_loss) / x.size(0), rec_loss/ x.size(0), KL_loss/ x.size(0)
+        rec_loss = self.reconstruction_loss_weight*torch.nn.functional.cross_entropy(logit.permute(0,2,1),x, reduction='sum', ignore_index=20)
+        KL_loss =self.beta*(-0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp()))
+        return (rec_loss + KL_loss) / x.size(0), rec_loss/ x.size(0), KL_loss/ x.size(0)
     
     # def chamfer_distance(self,x,x_reconstructed):
 
