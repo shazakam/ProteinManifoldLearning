@@ -121,7 +121,7 @@ def make_one_hot_data_list(dataset, max_seq_len, transformer_input, return_prote
 
     for sample in tqdm(dataset):
 
-        if len(sample[1]['protein']['sequence']) > max_seq_len or len(sample[1]['protein']['sequence']):
+        if len(sample[1]['protein']['sequence']) > max_seq_len:
             continue
 
         else:

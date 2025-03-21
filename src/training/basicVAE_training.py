@@ -31,11 +31,11 @@ def get_optimizer(optimizer):
     return optimizer
 
 
-def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, dataset_name, beta):
-    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [2, 16, 32, 64, 128])
-    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [512, 1024, 2048])
-    dropout_suggestion = trial.suggest_float("dropout_suggesstion",0,0.3, step = 0.1)
-    beta_suggestion = 1 #trial.suggest_categorical("hidden_dim_suggestion", [1, 5, 10, 20])
+def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, dataset_name):
+    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [2, 16, 32, 64, 128, 256])
+    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [256, 512, 1024, 2048])
+    # dropout_suggestion = trial.suggest_float("dropout_suggesstion",0,0.3, step = 0.1)
+    beta_suggestion = trial.suggest_categorical("beta_suggestion", [1, 5, 10, 20])
 
     # Model Checkpoints and saving
     checkpoint_callback = ModelCheckpoint(
@@ -43,14 +43,14 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
     save_top_k=1,
     mode = 'min',
     dirpath=f'trained_models/{dataset_name}/optimise_bvae/{trial.study.study_name}/',  # Folder to save checkpoints
-    filename=f'{trial.study.study_name}_{trial.number}',   # Checkpoint file name
+    filename=f'{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_suggestion}',   # Checkpoint file name
     )
 
     # Early Stopping to avoid overfitting
     early_stop_callback = EarlyStopping(
     monitor="val_loss_epoch",  # Metric to track
     mode="min",           # Stop when "val/loss" is minimized
-    patience = 15,           # Wait 5 epochs before stopping
+    patience = 15,           # Wait 15 epochs before stopping
     verbose=True
     )   
 
@@ -59,7 +59,7 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
     trainer = pl.Trainer(max_epochs = 100,
         accelerator="auto",
         devices="auto",
-        logger=TensorBoardLogger(save_dir=log_dir, name= f'optimise_bvae_trial_{trial.number}'),
+        logger=TensorBoardLogger(save_dir=log_dir, name= f'BVAE_{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_suggestion}'),
         callbacks=[early_stop_callback, checkpoint_callback],
         log_every_n_steps = 20
         )
@@ -75,7 +75,7 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
                         amino_acids = 21, 
                         hidden_dim = hidden_dim_suggestion,
                         beta = beta_suggestion,
-                        dropout = dropout_suggestion)
+                        dropout = 0)
 
     
     trainer.fit(model, seq_train_dataloader, seq_val_dataloader)
@@ -89,8 +89,7 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
 if __name__ == "__main__":
 
     dataset_name = input('Dataset ')
-    beta = input('Beta ')
-    beta = float(beta)
+
     # Set random seed for reproducibility
     torch.manual_seed(42)
     
@@ -113,20 +112,21 @@ if __name__ == "__main__":
     val_idx = random.sample(idx_list, subset_size)  # Get random subset
     train_idx = list(set(idx_list) - set(val_idx))
 
+    BATCH_SIZE = 128
+    n_trials = 3
     # Create data subsets
     train_subset = SequenceDataset(Subset(dataset, train_idx), max_seq_len)
     val_subset = SequenceDataset(Subset(dataset, val_idx), max_seq_len)
-    seq_train_dataloader = DataLoader(train_subset, batch_size=256, shuffle=True)
-    seq_val_dataloader = DataLoader(val_subset, batch_size=256, shuffle=True)
+    seq_train_dataloader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=True)
+    seq_val_dataloader = DataLoader(val_subset, batch_size=BATCH_SIZE, shuffle=True)
 
     # Run Optuna study
     print('Creating Study')
-    study = optuna.create_study(study_name=f'{dataset_name}_BasicVAE_HyperParam_Tuning_v1', direction="minimize")
+    study = optuna.create_study(study_name=f'{dataset_name}_BasicVAE_study_BS{BATCH_SIZE}_MS{max_seq_len}_trials{n_trials}', direction="minimize")
     study.optimize(lambda trial: objective(trial, seq_train_dataloader=seq_train_dataloader, 
                                            seq_val_dataloader = seq_val_dataloader, 
                                            max_seq_len = max_seq_len, 
-                                           dataset_name = dataset_name, 
-                                           beta = beta), n_trials=10)
+                                           dataset_name = dataset_name), n_trials=n_trials)
 
     print("Best trial:")
     trial = study.best_trial

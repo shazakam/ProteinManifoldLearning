@@ -32,8 +32,8 @@ def get_optimizer(optimizer):
 
 
 def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, dataset_name, beta):
-    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [2, 16, 32, 64, 128])
-    embed_dim_suggestion = trial.suggest_categorical("embed_dim_suggestion", [64, 128, 256])
+    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [2, 16, 32, 64, 128, 256])
+    embed_dim_suggestion = trial.suggest_categorical("embed_dim_suggestion", [64, 128, 256, 512])
     global_feature_size_suggestion = trial.suggest_categorical("global_feat_suggestion", [256, 512, 1024])
     beta_suggestion = 1
 
@@ -88,8 +88,6 @@ if __name__ == "__main__":
     # config = load_config("src/training/training_config.yaml")
 
     dataset_name = input('Dataset ')
-    beta = input('Beta ')
-    beta = float(beta)
 
     # Set random seed for reproducibility
     torch.manual_seed(42)
@@ -116,17 +114,16 @@ if __name__ == "__main__":
     # Create data subsets
     train_subset = SequenceDataset(Subset(dataset, train_idx), max_seq_len)
     val_subset = SequenceDataset(Subset(dataset, val_idx), max_seq_len)
-    seq_train_dataloader = DataLoader(train_subset, batch_size=256, shuffle=True)
-    seq_val_dataloader = DataLoader(val_subset, batch_size=256, shuffle=True)
+    seq_train_dataloader = DataLoader(train_subset, batch_size=128, shuffle=True)
+    seq_val_dataloader = DataLoader(val_subset, batch_size=128, shuffle=True)
 
     # Run Optuna study
     print('Creating Study')
-    study = optuna.create_study(study_name=f'{dataset_name}_B{beta}_PointVAE_HyperParam_Tuning_v1', direction="minimize")
+    study = optuna.create_study(study_name=f'{dataset_name}_PointVAE_HyperParam_Tuning_v1', direction="minimize")
     study.optimize(lambda trial: objective(trial, seq_train_dataloader=seq_train_dataloader, 
                                            seq_val_dataloader = seq_val_dataloader, 
                                            max_seq_len = max_seq_len, 
-                                           dataset_name = dataset_name, 
-                                           beta = beta), n_trials=10)
+                                           dataset_name = dataset_name), n_trials=10)
 
     print("Best trial:")
     trial = study.best_trial
