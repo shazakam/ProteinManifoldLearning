@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 
-from .t_net import T_NET
-
 class PointNetVAE(pl.LightningModule):
     def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512, beta = 1, conv_hidden_dim = 128, global_feature_size = 512, seq_embedding = 32, reconstruction_loss_weight = 1):
 
@@ -16,45 +14,16 @@ class PointNetVAE(pl.LightningModule):
         self.optimizer_param = optimizer_param
         self.seq_len = seq_len
         self.amino_acids = amino_acids
-        self.input_dim = self.amino_acids*self.seq_len
+        self.input_dim = (self.amino_acids+3)*self.seq_len
         self.global_feature_size = global_feature_size
         self.seq_embedding = seq_embedding
         self.reconstruction_loss_weight = reconstruction_loss_weight
 
-        # self.input_t_net = T_NET(dim = 3, seq_len = seq_len)
-        # self.feature_t_net = T_NET(dim = embed_dim, seq_len = seq_len, embed_dim = embed_dim)
-
-        self.embedding = nn.Embedding(21,seq_embedding,20)
 
         # Sequence Encoding Layer
 
-        self.fc1_enc = nn.Linear(self.seq_embedding*self.seq_len, self.global_feature_size)
+        self.fc1_enc = nn.Linear(self.amino_acids*self.seq_len, self.global_feature_size)
         self.bn_label = nn.BatchNorm1d(self.global_feature_size) 
-
-        # self.fc3_enc_mean = nn.Linear(self.hidden_dim, latent_dim)
-        # self.fc3_enc_logvar = nn.Linear(self.hidden_dim, latent_dim)
-
-        # self.conv1_label = nn.Conv1d(in_channels = seq_embedding, out_channels = seq_embedding, kernel_size = 1)
-        # self.conv2_label = nn.Conv1d(in_channels = seq_embedding, out_channels = seq_embedding, kernel_size = 1)
-        # self.fc1_seq_enc = nn.Linear(seq_embedding*seq_len, self.global_feature_size)
-
-        # # FIRST SHARED LAYER
-        # self.shared_conv1d_1 = nn.Conv1d(in_channels = 3, out_channels = embed_dim, kernel_size = 1)
-        # self.shared_conv1d_2 = nn.Conv1d(in_channels = embed_dim, out_channels = embed_dim, kernel_size = 1)
-
-
-        # # SECOND SHARED LAYER
-        # self.shared_conv1d_3 = nn.Conv1d(in_channels = embed_dim, out_channels = embed_dim, kernel_size = 1)
-        # self.shared_conv1d_4 = nn.Conv1d(in_channels = embed_dim, out_channels = 128, kernel_size = 1)
-        # self.shared_conv1d_5 = nn.Conv1d(in_channels = 128, out_channels = self.global_feature_size, kernel_size = 1)
-        # # self.shared_conv1d_6 = nn.Conv1d(in_channels = 128, out_channels = self.latent_dim, kernel_size = 1)
-
-        # self.bn1 = nn.BatchNorm1d(embed_dim)
-        # self.bn2 = nn.BatchNorm1d(embed_dim)
-        # self.bn3 = nn.BatchNorm1d(embed_dim)
-        # self.bn4 = nn.BatchNorm1d(128)
-        # self.bn5 = nn.BatchNorm1d(self.global_feature_size)
-        # # self.bn6 = nn.BatchNorm1d(self.latent_dim)
 
         # Final Linear Output Layers
         self.fc1_enc_mu = nn.Linear(2*self.global_feature_size, self.latent_dim)
@@ -67,7 +36,6 @@ class PointNetVAE(pl.LightningModule):
         self.bn2 = nn.BatchNorm1d(conv_hidden_dim*2)
         self.bn3 = nn.BatchNorm1d(self.global_feature_size)
 
-
         self.tanh = nn.Tanh()
         self.soft = nn.Softmax(dim=-1)
         self.max_pool = nn.MaxPool1d(kernel_size = seq_len)
@@ -78,15 +46,10 @@ class PointNetVAE(pl.LightningModule):
         self.fc3_dec = nn.Linear(self.hidden_dim, self.input_dim)
         self.bn3_dec = nn.BatchNorm1d(self.input_dim)
 
-        # self.register_buffer("ident1", torch.eye(3).view(1, 3, 3))
-        # self.register_buffer("ident2", torch.eye(embed_dim).view(1, embed_dim, embed_dim))
-     
-
 
     def forward(self, x):
-        labels = x[:,:,3].long()
+        labels = x[:,:,3:].float()
         x = x[:, :, :3]
-        labels = self.embedding(labels)
         reparam_z, x_mu, x_logvar = self.encode(x, labels)
         x_rec, logit = self.decode(reparam_z)
 
@@ -97,34 +60,8 @@ class PointNetVAE(pl.LightningModule):
      
         # Encode Sequences
         # print(labels.shape)
-        labels = labels.reshape(-1,self.seq_embedding*self.seq_len)
+        labels = labels.reshape(-1,self.amino_acids*self.seq_len)
         labels = self.tanh(self.bn_label(self.fc1_enc(labels)))
-
-        # labels = self.conv1_label(labels.permute(0,2,1))
-        # labels = self.tanh(labels)
-        # labels = self.conv2_label(labels)
-        # labels = self.tanh(labels)
-        # labels = labels.reshape(-1, self.seq_len*self.seq_embedding)
-        # labels = self.fc1_seq_enc(labels)
-
-        # Input Transform
-        # x = x.permute(0,2,1) # (B,3,S)
-        # t_net_transform  = self.input_t_net(x)
-        # x = torch.bmm(t_net_transform, x)
-        
-        # # Shared MLP
-        # x = self.bn1(self.tanh(self.shared_conv1d_1(x)))
-        # x = self.bn2(self.tanh(self.shared_conv1d_2(x)))
-
-        # # Feature Transform
-        # t_net_feature_transform = self.feature_t_net(x)
-        # x = torch.bmm(t_net_feature_transform, x)
-        
-        # # Shared MLP
-        # x = self.bn3(self.tanh(self.shared_conv1d_3(x)))
-        # x = self.bn4(self.tanh(self.shared_conv1d_4(x)))
-        
-        # x = self.bn5(self.tanh(self.shared_conv1d_5(x)))
 
         x = self.tanh(self.bn1(self.conv1(x.permute(0,2,1))))
         x = self.tanh(self.bn2(self.conv2(x)))
@@ -144,9 +81,10 @@ class PointNetVAE(pl.LightningModule):
         
         z = self.tanh(self.bn1_dec(self.fc1_dec(z)))
         logit = self.tanh(self.bn3_dec(self.fc3_dec(z)))
-        logit = logit.reshape(-1,self.seq_len, self.amino_acids)
+        logit = logit.reshape(-1,self.seq_len, self.amino_acids+3)
 
-        z = self.soft(logit)
+        softmax_logits = self.soft(logit[:,:, 3:])
+        z = torch.cat((logit[:, :, :3], softmax_logits), dim=-1)  
         return z, logit
 
     def reparametrisation(self, x_mu, x_logvar):
@@ -158,9 +96,13 @@ class PointNetVAE(pl.LightningModule):
         return z_new
     
     def ELBO(self, x, logit, x_mu, x_logvar):
+        x_true_indices = x[:,:,3:]
+        x_true_indices = x_true_indices.argmax(dim=-1)
+        x_true_indices[torch.where(torch.sum(x[:,:,3:], dim = -1) == 0)] = -1
+        predicted_coords = logit[:,:,:3]
+        logit = logit[:,:,3:]
+        rec_loss = self.reconstruction_loss_weight*torch.nn.functional.cross_entropy(logit.permute(0,2,1), x_true_indices, reduction='sum', ignore_index=-1) + torch.mean(torch.sqrt(torch.sum((x[:,:,:3]-predicted_coords)**2, dim=-1)))
 
-
-        rec_loss = self.reconstruction_loss_weight*torch.nn.functional.cross_entropy(logit.permute(0,2,1),x, reduction='sum', ignore_index=20)
         KL_loss =self.beta*(-0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp()))
         return (rec_loss + KL_loss) / x.size(0), rec_loss/ x.size(0), KL_loss/ x.size(0)
     
@@ -171,21 +113,12 @@ class PointNetVAE(pl.LightningModule):
         
     #     return loss/2
     
-    # def orthogonal_transform_regulariser(self, feature_transform, input_transform):
-
-    #     loss1 = torch.nn.functional.mse_loss(torch.bmm(
-    #         input_transform, input_transform.transpose(1, 2)), self.ident1.expand_as(input_transform))
-    #     loss2 = torch.nn.functional.mse_loss(torch.bmm(
-    #         feature_transform, feature_transform.transpose(1, 2)), self.ident2.expand_as(feature_transform))
-        
-    #     return (loss1+loss2)/2
-    
     def training_step(self, batch, batch_idx):
 
         x = batch
         rep_z, x_mu, x_logvar, x_rec, logit = self(x)
         
-        loss, rec_loss, KL_loss = self.ELBO(x[:,:,3], logit, x_mu, x_logvar)
+        loss, rec_loss, KL_loss = self.ELBO(x, logit, x_mu, x_logvar)
 
         # transform_loss = self.orthogonal_transform_regulariser(feature_transform, input_transform)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
@@ -198,7 +131,7 @@ class PointNetVAE(pl.LightningModule):
 
         x = batch
         rep_z, x_mu, x_logvar, x_rec, logit = self(x)
-        loss, rec_loss, KL_loss = self.ELBO(x[:,:,3], logit, x_mu, x_logvar)
+        loss, rec_loss, KL_loss = self.ELBO(x, logit, x_mu, x_logvar)
         # transform_loss = self.orthogonal_transform_regulariser(feature_transform, input_transform)
 
         self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)

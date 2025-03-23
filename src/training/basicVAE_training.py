@@ -11,6 +11,8 @@ import sys
 import random
 import optuna
 import pandas as pd
+import datetime
+
 # Load config
 def load_config(config_file="config.yaml"):
     with open(config_file, "r") as file:
@@ -32,27 +34,27 @@ def get_optimizer(optimizer):
 
 
 def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, dataset_name):
-    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [2, 16, 32, 64, 128, 256])
-    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [256, 512, 1024, 2048])
+    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [64, 96, 128, 160, 192, 256])
+    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [512, 800, 1024])
     # dropout_suggestion = trial.suggest_float("dropout_suggesstion",0,0.3, step = 0.1)
-    beta_suggestion = trial.suggest_categorical("beta_suggestion", [1, 5, 10, 20])
+    beta_suggestion = trial.suggest_categorical("beta_suggestion", [0.1, 0.5, 1])
 
     # Model Checkpoints and saving
     checkpoint_callback = ModelCheckpoint(
-    monitor='val_loss',
+    monitor='epoch',
     save_top_k=1,
-    mode = 'min',
+    mode = 'max',
     dirpath=f'trained_models/{dataset_name}/optimise_bvae/{trial.study.study_name}/',  # Folder to save checkpoints
     filename=f'{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_suggestion}',   # Checkpoint file name
     )
 
     # Early Stopping to avoid overfitting
-    early_stop_callback = EarlyStopping(
-    monitor="val_loss_epoch",  # Metric to track
-    mode="min",           # Stop when "val/loss" is minimized
-    patience = 15,           # Wait 15 epochs before stopping
-    verbose=True
-    )   
+    # early_stop_callback = EarlyStopping(
+    # monitor="val_loss_epoch",  # Metric to track
+    # mode="min",           # Stop when "val/loss" is minimized
+    # patience = 20,           # Wait 15 epochs before stopping
+    # verbose=True
+    # )   
 
     # Define Model and Trainer
     log_dir = f'experiments/training_logs/latent_BVAE/{trial.study.study_name}'
@@ -60,7 +62,7 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
         accelerator="auto",
         devices="auto",
         logger=TensorBoardLogger(save_dir=log_dir, name= f'BVAE_{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_suggestion}'),
-        callbacks=[early_stop_callback, checkpoint_callback],
+        callbacks=[checkpoint_callback],
         log_every_n_steps = 20
         )
     
@@ -75,7 +77,8 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
                         amino_acids = 21, 
                         hidden_dim = hidden_dim_suggestion,
                         beta = beta_suggestion,
-                        dropout = 0)
+                        dropout = 0,
+                        reconstruction_loss_weight = 1)
 
     
     trainer.fit(model, seq_train_dataloader, seq_val_dataloader)
@@ -113,16 +116,22 @@ if __name__ == "__main__":
     train_idx = list(set(idx_list) - set(val_idx))
 
     BATCH_SIZE = 128
-    n_trials = 3
+    n_trials = 50
     # Create data subsets
     train_subset = SequenceDataset(Subset(dataset, train_idx), max_seq_len)
     val_subset = SequenceDataset(Subset(dataset, val_idx), max_seq_len)
     seq_train_dataloader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=True)
     seq_val_dataloader = DataLoader(val_subset, batch_size=BATCH_SIZE, shuffle=True)
 
+    # Get current time
+    current_time = datetime.datetime.now()
+
+    # Format the time as hour-day-month
+    formatted_time = current_time.strftime("%H-%d-%m")
+
     # Run Optuna study
     print('Creating Study')
-    study = optuna.create_study(study_name=f'{dataset_name}_BasicVAE_study_BS{BATCH_SIZE}_MS{max_seq_len}_trials{n_trials}', direction="minimize")
+    study = optuna.create_study(study_name=f'{formatted_time}_{dataset_name}_BasicVAE_study_BS{BATCH_SIZE}_MS{max_seq_len}_trials{n_trials}', direction="minimize")
     study.optimize(lambda trial: objective(trial, seq_train_dataloader=seq_train_dataloader, 
                                            seq_val_dataloader = seq_val_dataloader, 
                                            max_seq_len = max_seq_len, 

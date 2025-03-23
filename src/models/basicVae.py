@@ -3,7 +3,7 @@ import torch.nn as nn
 import pytorch_lightning as pl
 
 class LitBasicVae(pl.LightningModule):
-    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512, dropout = 0.4, beta = 1, reconstruction_loss_weight = 0.1):
+    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512, dropout = 0.4, beta = 1, reconstruction_loss_weight = 0.01):
 
         super().__init__()
         self.save_hyperparameters()
@@ -26,16 +26,27 @@ class LitBasicVae(pl.LightningModule):
     
 
         # Encoder 
+        # self.conv1 = nn.Conv1d(21, 32, 3, padding='same')
+        # self.conv2 = nn.Conv1d(32, 32, 3, padding='same')
+        # self.pool = nn.AvgPool1d(5, 2)
+
+        # self.conv3 = nn.Conv1d(32, 64, 3, padding='same')
+        # self.conv4 = nn.Conv1d(64, 64, 3, padding='same')
+        # self.pool2 = nn.AvgPool1d(5, 2)
+
         self.fc1_enc = nn.Linear(self.amino_acids*self.seq_len, self.hidden_dim)
-        self.bn1 = nn.BatchNorm1d(hidden_dim) 
+        # self.fc1_enc = nn.Linear(64*122, self.hidden_dim)
+       
         self.fc3_enc_mean = nn.Linear(self.hidden_dim, latent_dim)
+        # self.bn2_mu = nn.BatchNorm1d(latent_dim)
         self.fc3_enc_logvar = nn.Linear(self.hidden_dim, latent_dim)
+        # self.bn3_logvar = nn.BatchNorm1d(latent_dim)
+
 
         # Decoder
         self.fc1_dec = nn.Linear(latent_dim,self.hidden_dim)
-        self.bn2 = nn.BatchNorm1d(hidden_dim) 
         self.fc3_dec = nn.Linear(self.hidden_dim, self.input_dim)
-        self.bn3 = nn.BatchNorm1d(self.input_dim)
+        # self.bn3_dec = nn.BatchNorm1d(self.input_dim)
 
     def forward(self, x):
 
@@ -49,9 +60,8 @@ class LitBasicVae(pl.LightningModule):
         return reparam_z, x_mu, x_logvar, x_rec, logit
 
     def encode(self, x):
-
         x = x.reshape(-1,self.amino_acids*self.seq_len)
-        x = self.tanh(self.bn1(self.fc1_enc(x)))
+        x = self.tanh(self.fc1_enc(x))
 
         x_mu = self.tanh(self.fc3_enc_mean(x))
         x_logvar = self.tanh(self.fc3_enc_logvar(x))
@@ -61,8 +71,8 @@ class LitBasicVae(pl.LightningModule):
 
     def decode(self, z):
 
-        z = self.dropout_layer(self.tanh(self.bn2(self.fc1_dec(z))))
-        logit = self.dropout_layer(self.bn3(self.fc3_dec(z)))
+        z = self.tanh(self.fc1_dec(z))
+        logit = self.tanh(self.fc3_dec(z))
         logit = logit.reshape(-1,self.seq_len, self.amino_acids)
 
         z = self.soft(logit)
@@ -84,13 +94,14 @@ class LitBasicVae(pl.LightningModule):
         
         # X true indices contains index locations of true labels
         x_true_indices = x.argmax(dim=-1)
+        x_true_indices[torch.where(torch.sum(x, dim = -1) == 0)] = -1
 
         # Permute logit to shape (B, A, S) for cross entropy function and ignore index 21 (padding value)
         # print(x_true_indices)
-        rec_loss = self.reconstruction_loss_weight*torch.nn.functional.cross_entropy(logit.permute(0,2,1),x_true_indices, reduction='sum', ignore_index=20)
-        KL_loss = self.beta*(-0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp()))
+        rec_loss = self.reconstruction_loss_weight*torch.nn.functional.cross_entropy(logit.permute(0,2,1),x_true_indices, reduction='sum', ignore_index=-1)
+        KL_loss = self.beta*(-0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp())) 
         
-        return (rec_loss + KL_loss) / x.size(0), rec_loss/ x.size(0), KL_loss/ x.size(0)
+        return (rec_loss + KL_loss)/x.shape[0] , rec_loss/x.shape[0], KL_loss/x.shape[0]
     
     def training_step(self, batch, batch_idx):
 
@@ -136,4 +147,6 @@ class LitBasicVae(pl.LightningModule):
     
     def on_train_epoch_end(self):
         self.log("learning_rate", self.trainer.optimizers[0].param_groups[0]['lr'], prog_bar=True)
+        # self.beta += 0.05
+        # self.log("beta", self.beta, logger=True)
 

@@ -17,13 +17,11 @@ class SequenceDataset(Dataset):
         self.max_seq_len = max_seq_len
         if return_proteins:
             self.enc_seq, self.org_protein_data = make_one_hot_data_list(self.protein_shake_dataset, 
-                                                                         self.max_seq_len, 
-                                                                         transformer_input = transformer_input, 
+                                                                         self.max_seq_len,  
                                                                          return_proteins=return_proteins)
         else:
             self.enc_seq = make_one_hot_data_list(self.protein_shake_dataset, 
                                                   self.max_seq_len, 
-                                                  transformer_input = transformer_input, 
                                                   return_proteins=return_proteins)
     def __len__(self):
         return len(self.enc_seq)

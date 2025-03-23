@@ -40,17 +40,17 @@ def filter_by_max_length_and_pad(dataset, max_seq_len, return_proteins = False):
     for sample in dataset:
         data_list.append(sample[0][:,:3])
 
-    xyz_mean = torch.mean(torch.concatenate(data_list, dim = 0), dim = 0)
-    xyz_std = torch.std(torch.concatenate(data_list, dim = 0), dim = 0)
-
-
     if return_proteins:
         org_protein_data = []
         for sample in tqdm(dataset):
             seq_leng = len(sample[1]['protein']['sequence'])
+            xyz_mean = torch.mean(sample[0][:,:3], dim=0)
             if seq_leng <= max_seq_len:
-                padded_data = pad_cloud_data(sample[0], max_seq_len)
-                padded_data[:,:3] = (padded_data[:,:3] - xyz_mean) / xyz_std
+                sample_data = sample[0]
+                xyz_mean = torch.mean(sample_data[:,:3], dim=0)
+
+                sample_data[:,:3] = (sample_data[:,:3] - xyz_mean)
+                padded_data = pad_cloud_data(sample_data, max_seq_len)
                 proteins.append(padded_data)
                 org_protein_data.append(sample)
 
@@ -60,20 +60,29 @@ def filter_by_max_length_and_pad(dataset, max_seq_len, return_proteins = False):
         for sample in tqdm(dataset):
             seq_leng = len(sample[1]['protein']['sequence'])
             if seq_leng <= max_seq_len:
-                padded_data = pad_cloud_data(sample[0], max_seq_len)
-                padded_data[:,:3] = (padded_data[:,:3] - xyz_mean) / xyz_std
+                sample_data = sample[0]
+                xyz_mean = torch.mean(sample_data[:,:3], dim=0)
+
+                sample_data[:,:3] = (sample_data[:,:3] - xyz_mean)
+                padded_data = pad_cloud_data(sample_data, max_seq_len)
                 proteins.append(padded_data)
         return proteins
 
     
     
 def pad_cloud_data(sample, max_seq_len):
+
     coords = sample[:,:3]
     coords = center_point_cloud(coords)
 
     labels = sample[:,3]
-    coords = torch.nn.functional.pad(coords[:max_seq_len], (0,0,0,max(0, max_seq_len - coords.shape[0])))
-    labels = torch.nn.functional.pad(labels[:max_seq_len], (0, max(0, max_seq_len - labels.shape[0])), value=20).unsqueeze(1)
+    labels = torch.concatenate([labels, torch.tensor([20])], dim = -1)
+    labels = torch.nn.functional.one_hot(labels.long())
+    coords = torch.nn.functional.pad(coords, (0,0,0,max(0, max_seq_len - coords.shape[0])),"constant", 0)
+
+    pad_length = max_seq_len - labels.shape[0]
+    labels = torch.nn.functional.pad(labels, (0,0,0,pad_length),"constant", 0)
+
     padded = torch.concatenate([coords, labels], dim = 1)
     return padded
 
@@ -87,35 +96,25 @@ def scale_cloud_data(pc):
     pc = pc / scaling_const
     return pc
 
-def one_hot_encode_seq(seq, max_seq_len, transformer_input = False, convert_to_tensor=True):
+def one_hot_encode_seq(seq, max_seq_len):
 
     amino_encoding_dict = {'A': 0,'R': 1,'N': 2,'D': 3,'C': 4,'E': 5,
                             'Q': 6,'G': 7,'H': 8,'I': 9,'L': 10,'K': 11,
                             'M': 12,'F': 13,'P': 14,'S': 15,'T': 16,
                             'W': 17,'Y': 18,'V': 19, 'X':20}
+
+    seq_encoded = torch.tensor([amino_encoding_dict[c] for c in seq])
+    seq_encoded = torch.nn.functional.one_hot(seq_encoded, num_classes=21).float()
+    end_token = torch.zeros(21, dtype=seq_encoded.dtype)
+    end_token[20] = 1
+    seq_encoded = torch.concatenate([seq_encoded, end_token.unsqueeze(0)], dim = 0)
+
+    pad_length = max_seq_len - seq_encoded.shape[0]
+    seq_encoded = torch.nn.functional.pad(seq_encoded, (0,0,0,pad_length),"constant", 0)
     
-    one_hot_idx_list = []
-    one_hot_encoded_list = []
-    seq = seq+(max_seq_len-len(seq))*'X'
+    return seq_encoded
 
-
-    for char in seq:
-        one_hot_idx_list.append([amino_encoding_dict[char]])
-        one_hot = np.zeros(21)
-        one_hot[amino_encoding_dict[char]] = 1
-
-        one_hot_encoded_list.append(one_hot)
-
-    encoded_idx_array = np.array(one_hot_idx_list)
-    one_hot_encoded_array = np.array(one_hot_encoded_list)
-
-    if transformer_input:
-        return torch.tensor(encoded_idx_array, dtype=torch.int32).squeeze(), torch.tensor(one_hot_encoded_array, dtype=torch.float32)
-    else:
-        return torch.tensor(one_hot_encoded_array, dtype=torch.float32)
-    
-
-def make_one_hot_data_list(dataset, max_seq_len, transformer_input, return_proteins = True):
+def make_one_hot_data_list(dataset, max_seq_len, return_proteins = True):
     one_hot_dataset = []
     proteins = []
 
@@ -125,17 +124,11 @@ def make_one_hot_data_list(dataset, max_seq_len, transformer_input, return_prote
             continue
 
         else:
-
             if return_proteins:
                 proteins.append(sample)
 
-            if transformer_input:
-                encoded_idx_tensor, one_hot_encoded_tensor = one_hot_encode_seq(sample[1]['protein']['sequence'], max_seq_len, transformer_input)
-                one_hot_dataset.append((encoded_idx_tensor, one_hot_encoded_tensor))
-
-            else:
-                one_hot_seq = one_hot_encode_seq(sample[1]['protein']['sequence'], max_seq_len, transformer_input)
-                one_hot_dataset.append(one_hot_seq)
+            one_hot_seq = one_hot_encode_seq(sample[1]['protein']['sequence'], max_seq_len)
+            one_hot_dataset.append(one_hot_seq)
 
     if return_proteins:
 
