@@ -105,21 +105,13 @@ def BetaExperiment(point_train_dataloader, point_val_dataloader, dataset_name):
         filename=f'{trial.number}_LD{latent_dim}_GF{global_feature_size}_BetaInc{beta_inc}',   # Checkpoint file name
         )
 
-        # Early Stopping to avoid overfitting
-        early_stop_callback = EarlyStopping(
-        monitor="val_loss_epoch",  # Metric to track
-        mode="min",           # Stop when "val/loss" is minimized
-        patience = 15,           # Wait 5 epochs before stopping
-        verbose=True
-        )   
-
         # Define Model and Trainer
         log_dir = f'experiments/training_logs/latent_PointVAE/BETA{beta_inc}_{dataset_name}'
         trainer = pl.Trainer(max_epochs = 100,
             accelerator="auto",
             devices="auto",
             logger=TensorBoardLogger(save_dir=log_dir, name= f'PVAE_{trial.number}_LD{latent_dim}_GF{global_feature_size}_Beta{beta_inc}_CH{conv_hidden}'),
-            callbacks=[early_stop_callback, checkpoint_callback],
+            callbacks=[checkpoint_callback],
             log_every_n_steps = 20
             )
         
