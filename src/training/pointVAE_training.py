@@ -48,21 +48,13 @@ def objective(trial, point_train_dataloader, point_val_dataloader, dataset_name)
     filename=f'{trial.number}_LD{latent_dim_suggestion}_GF{global_feature_size_suggestion}_BetaInc{beta_increment_suggestion}',   # Checkpoint file name
     )
 
-    # Early Stopping to avoid overfitting
-    early_stop_callback = EarlyStopping(
-    monitor="val_loss_epoch",  # Metric to track
-    mode="min",           # Stop when "val/loss" is minimized
-    patience = 15,           # Wait 5 epochs before stopping
-    verbose=True
-    )   
-
     # Define Model and Trainer
     log_dir = f'experiments/training_logs/latent_PointVAE/{trial.study.study_name}'
     trainer = pl.Trainer(max_epochs = 100,
         accelerator="auto",
         devices="auto",
         logger=TensorBoardLogger(save_dir=log_dir, name= f'PVAE_{trial.number}_LD{latent_dim_suggestion}_GF{global_feature_size_suggestion}_BetaInc{beta_increment_suggestion}_CH{conv_hidden_dim_suggestion}'),
-        callbacks=[early_stop_callback, checkpoint_callback],
+        callbacks=[checkpoint_callback],
         log_every_n_steps = 20
         )
     
@@ -117,7 +109,7 @@ if __name__ == "__main__":
     train_idx = list(set(idx_list) - set(val_idx))
 
     BATCH_SIZE = 128
-    n_trials = 3
+    n_trials = 10
 
     # Create data subsets
     train_subset = TensorDataset(torch.load('../data/processed/point/Pfam_Point_Processed_tensors/Pfam_data_train.pt'))
