@@ -75,8 +75,8 @@ class PointNetVAE(pl.LightningModule):
         global_features = self.max_pool(x).squeeze()
         global_features = torch.cat((global_features, labels), dim = -1)
 
-        x_mu = self.tanh(self.fc1_enc_mu(global_features))
-        x_logvar = self.tanh(self.fc1_enc_logvar(global_features))
+        x_mu = self.fc1_enc_mu(global_features)
+        x_logvar = self.fc1_enc_logvar(global_features)
 
         reparam_z = self.reparametrisation(x_mu, x_logvar)
 
@@ -85,7 +85,7 @@ class PointNetVAE(pl.LightningModule):
     def decode(self, z):
         
         z = self.tanh(self.bn1_dec(self.fc1_dec(z)))
-        logit = self.tanh(self.bn3_dec(self.fc3_dec(z)))
+        logit = self.bn3_dec(self.fc3_dec(z))
         logit = logit.reshape(-1,self.seq_len, self.amino_acids+3)
 
         softmax_logits = self.soft(logit[:,:, 3:])

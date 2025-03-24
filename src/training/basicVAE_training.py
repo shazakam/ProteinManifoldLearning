@@ -40,9 +40,10 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
     # beta_suggestion = trial.suggest_categorical("beta_suggestion", [0.1, 0.5, 1, 2, 10])
 
     # BETA ANNEALING EXPERIMENT PARMATERS - Linear Annealing
-    latent_dim_suggestion = 64
+    latent_dim_suggestion = 16
     hidden_dim_suggestion = 512
-    beta_increment_suggestion = trial.suggest_categorical("beta_increment_suggestion", [0.4, 0.5, 1, 2, 10])
+
+    beta_increment_suggestion = trial.suggest_categorical("beta_increment_suggestion", [0.05, 0.1, 0.5, 1, 2, 5])
 
     # LATENT DIM EXPERIMENT 
     # latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [16, 32, 64, 96, 128, 160, 192, 256, 512])
@@ -73,7 +74,7 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
 
     # Define Model and Trainer
     log_dir = f'experiments/training_logs/latent_BVAE/{trial.study.study_name}'
-    trainer = pl.Trainer(max_epochs = 150,
+    trainer = pl.Trainer(max_epochs = 100,
         accelerator="auto",
         devices="auto",
         logger=TensorBoardLogger(save_dir=log_dir, name= f'BVAE_{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_increment_suggestion}'),
@@ -91,9 +92,9 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
                         seq_len = max_seq_len, 
                         amino_acids = 21, 
                         hidden_dim = hidden_dim_suggestion,
-                        beta = 0,
-                        beta_cycle = 30,
-                        beta_epoch_start = 40,
+                        beta = 0.01,
+                        beta_cycle = 20,
+                        beta_epoch_start = 20,
                         beta_increment = beta_increment_suggestion,
                         dropout = 0,
                         reconstruction_loss_weight = 1)
