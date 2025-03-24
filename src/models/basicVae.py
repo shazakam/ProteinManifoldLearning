@@ -3,11 +3,16 @@ import torch.nn as nn
 import pytorch_lightning as pl
 
 class LitBasicVae(pl.LightningModule):
-    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512, dropout = 0.4, beta = 1, reconstruction_loss_weight = 0.01):
+    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512, dropout = 0.4, beta_increment = 1, beta_epoch_start = 20, beta_cycle = 10, reconstruction_loss_weight = 0.01):
 
         super().__init__()
         self.save_hyperparameters()
-        self.beta = beta
+
+        self.beta = 0
+        self.beta_epoch_start = beta_epoch_start
+        self.beta_increment = beta_increment
+        self.beta_cycle = beta_cycle
+
         self.hidden_dim = hidden_dim
         self.latent_dim = latent_dim
         self.optimizer = optimizer
@@ -17,36 +22,20 @@ class LitBasicVae(pl.LightningModule):
         self.input_dim = (self.amino_acids)*self.seq_len
         self.reconstruction_loss_weight = reconstruction_loss_weight
 
-        self.log("beta", beta, logger=True)
+        self.log("beta", self.beta, logger=True)
 
         # Activation Functions
         self.tanh = nn.Tanh()
         self.soft = nn.Softmax(dim=2)
         self.dropout_layer = nn.Dropout(dropout)
-    
-
-        # Encoder 
-        # self.conv1 = nn.Conv1d(21, 32, 3, padding='same')
-        # self.conv2 = nn.Conv1d(32, 32, 3, padding='same')
-        # self.pool = nn.AvgPool1d(5, 2)
-
-        # self.conv3 = nn.Conv1d(32, 64, 3, padding='same')
-        # self.conv4 = nn.Conv1d(64, 64, 3, padding='same')
-        # self.pool2 = nn.AvgPool1d(5, 2)
 
         self.fc1_enc = nn.Linear(self.amino_acids*self.seq_len, self.hidden_dim)
-        # self.fc1_enc = nn.Linear(64*122, self.hidden_dim)
-       
         self.fc3_enc_mean = nn.Linear(self.hidden_dim, latent_dim)
-        # self.bn2_mu = nn.BatchNorm1d(latent_dim)
         self.fc3_enc_logvar = nn.Linear(self.hidden_dim, latent_dim)
-        # self.bn3_logvar = nn.BatchNorm1d(latent_dim)
-
 
         # Decoder
         self.fc1_dec = nn.Linear(latent_dim,self.hidden_dim)
         self.fc3_dec = nn.Linear(self.hidden_dim, self.input_dim)
-        # self.bn3_dec = nn.BatchNorm1d(self.input_dim)
 
     def forward(self, x):
 
@@ -147,6 +136,8 @@ class LitBasicVae(pl.LightningModule):
     
     def on_train_epoch_end(self):
         self.log("learning_rate", self.trainer.optimizers[0].param_groups[0]['lr'], prog_bar=True)
-        # self.beta += 0.05
-        # self.log("beta", self.beta, logger=True)
+
+        if self.current_epoch >= self.beta_epoch_start and (self.current_epoch - self.beta_epoch_start%self.beta_cycle) % self.beta_cycle == 0:
+            self.beta += self.beta_increment  # Increase by a small amount
+            self.log("beta", self.beta, prog_bar=True)  
 
