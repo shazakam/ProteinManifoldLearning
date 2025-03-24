@@ -3,16 +3,16 @@ import torch.nn as nn
 import pytorch_lightning as pl
 
 class PointNetVAE(pl.LightningModule):
-    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512, beta_increment = 1, beta_epoch_start = 20, beta_cycle = 10, conv_hidden_dim = 128, global_feature_size = 512, seq_embedding = 32, reconstruction_loss_weight = 1):
+    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512, beta = 0, beta_increment = 1, beta_epoch_start = 20, beta_cycle = 10, conv_hidden_dim = 128, global_feature_size = 512, seq_embedding = 32, reconstruction_loss_weight = 1):
 
         super().__init__()
         self.save_hyperparameters()
         
-        self.beta = 0
+        self.beta = beta
         self.beta_epoch_start = beta_epoch_start
         self.beta_increment = beta_increment
         self.beta_cycle = beta_cycle
-        
+
         self.hidden_dim = hidden_dim
         self.latent_dim = latent_dim
         self.optimizer = optimizer
@@ -125,7 +125,7 @@ class PointNetVAE(pl.LightningModule):
     
     def training_step(self, batch, batch_idx):
 
-        x = batch
+        x = batch[0]
         rep_z, x_mu, x_logvar, x_rec, logit = self(x)
         
         loss, rec_loss, KL_loss, mse = self.ELBO(x, logit, x_mu, x_logvar)
@@ -139,7 +139,7 @@ class PointNetVAE(pl.LightningModule):
     
     def validation_step(self, batch, batch_idx):
 
-        x = batch
+        x = batch[0]
         rep_z, x_mu, x_logvar, x_rec, logit = self(x)
         loss, rec_loss, KL_loss, mse = self.ELBO(x, logit, x_mu, x_logvar)
         # transform_loss = self.orthogonal_transform_regulariser(feature_transform, input_transform)

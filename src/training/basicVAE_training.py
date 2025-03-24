@@ -42,7 +42,7 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
     # BETA ANNEALING EXPERIMENT PARMATERS - Linear Annealing
     latent_dim_suggestion = 64
     hidden_dim_suggestion = 512
-    beta_increment_suggestion = trial.suggest_categorical("beta_increment_suggestion", [0, 0.5, 1, 2, 10])
+    beta_increment_suggestion = trial.suggest_categorical("beta_increment_suggestion", [0.4, 0.5, 1, 2, 10])
 
     # LATENT DIM EXPERIMENT 
     # latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [16, 32, 64, 96, 128, 160, 192, 256, 512])
@@ -92,8 +92,8 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
                         amino_acids = 21, 
                         hidden_dim = hidden_dim_suggestion,
                         beta = 0,
-                        beta_cycle = 20,
-                        beta_epoch_start = 50,
+                        beta_cycle = 30,
+                        beta_epoch_start = 40,
                         beta_increment = beta_increment_suggestion,
                         dropout = 0,
                         reconstruction_loss_weight = 1)

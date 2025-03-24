@@ -3,12 +3,12 @@ import torch.nn as nn
 import pytorch_lightning as pl
 
 class LitBasicVae(pl.LightningModule):
-    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512, dropout = 0.4, beta_increment = 1, beta_epoch_start = 20, beta_cycle = 10, reconstruction_loss_weight = 0.01):
+    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, hidden_dim=512, dropout = 0.4, beta = 0, beta_increment = 1, beta_epoch_start = 20, beta_cycle = 10, reconstruction_loss_weight = 0.01):
 
         super().__init__()
         self.save_hyperparameters()
 
-        self.beta = 0
+        self.beta = beta
         self.beta_epoch_start = beta_epoch_start
         self.beta_increment = beta_increment
         self.beta_cycle = beta_cycle
