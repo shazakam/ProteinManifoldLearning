@@ -87,58 +87,59 @@ def objective(trial, point_train_dataloader, point_val_dataloader, dataset_name)
     # Return the final training loss
     return trainer.callback_metrics.get("val_loss_epoch", torch.tensor(float("inf"))).item()
 
-# def BetaExperiment(point_train_dataloader, point_val_dataloader, dataset_name):
-#     beta_increments = [0.05, 0.1, 0.5, 1, 2, 5]
-#     latent_dim = 16
-#     global_feature_size = 512
-#     conv_hidden = 512
-#     beta = 0.01
+def BetaExperiment(point_train_dataloader, point_val_dataloader, dataset_name):
+    beta_increments = [0.05, 0.1, 0.5, 1, 2, 5]
+    latent_dim = 16
+    global_feature_size = 512
+    conv_hidden = 512
+    hidden_dim = 512
+    beta = 0.01
 
-#     for beta_inc in beta_increments:
-#         # Model Checkpoints and saving
-#         checkpoint_callback = ModelCheckpoint(
-#         monitor='val_loss_epoch',
-#         save_top_k=1,
-#         mode = 'min',
-#         dirpath=f'trained_models/{dataset_name}/BETA_point_vae/{dataset_name}_BETA/',  # Folder to save checkpoints
-#         filename=f'{trial.number}_LD{latent_dim}_GF{global_feature_size}_Beta{beta}',   # Checkpoint file name
-#         )
+    for beta_inc in beta_increments:
+        # Model Checkpoints and saving
+        checkpoint_callback = ModelCheckpoint(
+        monitor='val_loss_epoch',
+        save_top_k=1,
+        mode = 'min',
+        dirpath=f'trained_models/{dataset_name}/BETA_point_vae/{dataset_name}_BETA_EXP/',  # Folder to save checkpoints
+        filename=f'{trial.number}_LD{latent_dim}_GF{global_feature_size}_BetaInc{beta_inc}',   # Checkpoint file name
+        )
 
-#         # Early Stopping to avoid overfitting
-#         early_stop_callback = EarlyStopping(
-#         monitor="val_loss_epoch",  # Metric to track
-#         mode="min",           # Stop when "val/loss" is minimized
-#         patience = 15,           # Wait 5 epochs before stopping
-#         verbose=True
-#         )   
+        # Early Stopping to avoid overfitting
+        early_stop_callback = EarlyStopping(
+        monitor="val_loss_epoch",  # Metric to track
+        mode="min",           # Stop when "val/loss" is minimized
+        patience = 15,           # Wait 5 epochs before stopping
+        verbose=True
+        )   
 
-#         # Define Model and Trainer
-#         log_dir = f'experiments/training_logs/latent_PointVAE/BETA_{dataset_name}'
-#         trainer = pl.Trainer(max_epochs = 100,
-#             accelerator="auto",
-#             devices="auto",
-#             logger=TensorBoardLogger(save_dir=log_dir, name= f'PVAE_{trial.number}_LD{latent_dim}_GF{global_feature_size}_Beta{beta}_CH{conv_hidden_dim_suggestion}_EM{embed_dim_suggestion}'),
-#             callbacks=[early_stop_callback, checkpoint_callback],
-#             log_every_n_steps = 20
-#             )
+        # Define Model and Trainer
+        log_dir = f'experiments/training_logs/latent_PointVAE/BETA{beta_inc}_{dataset_name}'
+        trainer = pl.Trainer(max_epochs = 100,
+            accelerator="auto",
+            devices="auto",
+            logger=TensorBoardLogger(save_dir=log_dir, name= f'PVAE_{trial.number}_LD{latent_dim}_GF{global_feature_size}_Beta{beta_inc}_CH{conv_hidden}'),
+            callbacks=[early_stop_callback, checkpoint_callback],
+            log_every_n_steps = 20
+            )
         
-#         # Initialise Optimizer, Model anad begin training
-#         optimizer = torch.optim.AdamW
-#         optimzer_param = {'lr':0.001}
+        # Initialise Optimizer, Model anad begin training
+        optimizer = torch.optim.AdamW
+        optimzer_param = {'lr':0.001}
 
-#         model = PointNetVAE(latent_dim = latent_dim_suggestion,
-#                             optimizer = optimizer,
-#                             optimizer_param = optimzer_param,
-#                             seq_embedding = embed_dim_suggestion, 
-#                             global_feature_size = global_feature_size_suggestion, 
-#                             beta=beta_suggestion,
-#                             conv_hidden_dim = conv_hidden_dim_suggestion,
-#                             hidden_dim = hidden_dim_suggestion)
+        model = PointNetVAE(latent_dim = latent_dim,
+                            optimizer = optimizer,
+                            optimizer_param = optimzer_param,
+                            global_feature_size = global_feature_size, 
+                            beta=beta,
+                            beta_increment=beta_inc,
+                            conv_hidden_dim = conv_hidden,
+                            hidden_dim = hidden_dim)
 
         
-#         trainer.fit(model, point_train_dataloader, point_val_dataloader)
+        trainer.fit(model, point_train_dataloader, point_val_dataloader)
 
-#     return
+    return
 
 
 # Main function to run experiments
