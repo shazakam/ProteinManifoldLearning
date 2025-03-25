@@ -49,7 +49,7 @@ def BetaExperiment(seq_train_dataloader, seq_val_dataloader, dataset_name):
                             seq_len = max_seq_len, 
                             amino_acids = 21, 
                             hidden_dim = hidden_dim_suggestion,
-                            beta = 0.01,
+                            beta = 0.001,
                             beta_cycle = 20,
                             beta_epoch_start = 20,
                             beta_increment = beta_inc,

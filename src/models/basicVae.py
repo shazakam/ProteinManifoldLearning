@@ -87,10 +87,10 @@ class LitBasicVae(pl.LightningModule):
 
         # Permute logit to shape (B, A, S) for cross entropy function and ignore index 21 (padding value)
         # print(x_true_indices)
-        rec_loss = self.reconstruction_loss_weight*torch.nn.functional.cross_entropy(logit.permute(0,2,1),x_true_indices, reduction='sum', ignore_index=-1)
+        rec_loss = self.reconstruction_loss_weight*torch.nn.functional.cross_entropy(logit.permute(0,2,1),x_true_indices, reduction='mean', ignore_index=-1)
         KL_loss = self.beta*(-0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp())) 
         
-        return (rec_loss + KL_loss)/x.shape[0] , rec_loss/x.shape[0], KL_loss/x.shape[0]
+        return (rec_loss + KL_loss/x.shape[0]) , rec_loss, KL_loss/x.shape[0]
     
     def training_step(self, batch, batch_idx):
 

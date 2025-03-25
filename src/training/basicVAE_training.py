@@ -35,9 +35,9 @@ def get_optimizer(optimizer):
 
 def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, dataset_name):
     # Sweep
-    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [64, 96, 128, 160, 192, 256])
-    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [512, 800, 1024])
-    beta = 1
+    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [16, 32,64, 96, 128, 160, 192])
+    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [256,512, 800, 1024])
+    beta = trial.suggest_categorical("beta_suggestion", [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1])
 
     # beta_suggestion = trial.suggest_categorical("beta_suggestion", [0.1, 0.5, 1, 2, 10])
 
@@ -64,7 +64,7 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
     save_top_k=1,
     mode = 'max',
     dirpath=f'trained_models/{dataset_name}/optimise_bvae/{trial.study.study_name}/',  # Folder to save checkpoints
-    filename=f'{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_increment_suggestion}',   # Checkpoint file name
+    filename=f'{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta}_BetaInc{beta_increment_suggestion}',   # Checkpoint file name
     )
 
     # Early Stopping to avoid overfitting
@@ -80,7 +80,7 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
     trainer = pl.Trainer(max_epochs = 100,
         accelerator="auto",
         devices="auto",
-        logger=TensorBoardLogger(save_dir=log_dir, name= f'BVAE_{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_increment_suggestion}'),
+        logger=TensorBoardLogger(save_dir=log_dir, name= f'BVAE_{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta}_BetaInc{beta_increment_suggestion}'),
         callbacks=[checkpoint_callback],
         log_every_n_steps = 20
         )
