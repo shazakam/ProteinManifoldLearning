@@ -34,16 +34,19 @@ def get_optimizer(optimizer):
 
 
 def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, dataset_name):
-    # latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [64, 96, 128, 160, 192, 256])
-    # hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [512, 800, 1024])
-    # dropout_suggestion = trial.suggest_float("dropout_suggesstion",0,0.3, step = 0.1)
+    # Sweep
+    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [64, 96, 128, 160, 192, 256])
+    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [512, 800, 1024])
+    beta = 1
+
     # beta_suggestion = trial.suggest_categorical("beta_suggestion", [0.1, 0.5, 1, 2, 10])
 
     # BETA ANNEALING EXPERIMENT PARMATERS - Linear Annealing
-    latent_dim_suggestion = 16
-    hidden_dim_suggestion = 512
+    # beta = 0.01
+    # latent_dim_suggestion = 16
+    # hidden_dim_suggestion = 512
 
-    beta_increment_suggestion = trial.suggest_categorical("beta_increment_suggestion", [0.05, 0.1, 0.5, 1, 2, 5])
+    beta_increment_suggestion = 0 #trial.suggest_categorical("beta_increment_suggestion", [0.05, 0.1, 0.5, 1, 2, 5])
 
     # LATENT DIM EXPERIMENT 
     # latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [16, 32, 64, 96, 128, 160, 192, 256, 512])
@@ -92,7 +95,7 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
                         seq_len = max_seq_len, 
                         amino_acids = 21, 
                         hidden_dim = hidden_dim_suggestion,
-                        beta = 0.01,
+                        beta = beta,
                         beta_cycle = 20,
                         beta_epoch_start = 20,
                         beta_increment = beta_increment_suggestion,
