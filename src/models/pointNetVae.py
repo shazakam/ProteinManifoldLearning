@@ -102,7 +102,8 @@ class PointNetVAE(pl.LightningModule):
     def calculate_mse(self, predicted_coords, true_coords, mask):
 
         mse = torch.sqrt(torch.sum(((true_coords-predicted_coords)**2), dim=-1))*mask
-        return torch.sum(mse)
+
+        return torch.sum(mse) / torch.sum(mask)
        
     def ELBO(self, x, logit, x_mu, x_logvar):
         x_true_indices = x[:,:,3:]
@@ -115,11 +116,11 @@ class PointNetVAE(pl.LightningModule):
         logit = logit[:,:,3:]
 
         mse = self.calculate_mse(predicted_coords, x[:,:,:3], mask)
-        cross_entropy = torch.nn.functional.cross_entropy(logit.permute(0,2,1), x_true_indices, reduction='sum', ignore_index=-1)
+        cross_entropy = torch.nn.functional.cross_entropy(logit.permute(0,2,1), x_true_indices, reduction='mean', ignore_index=-1)
         rec_loss = self.reconstruction_loss_weight*(cross_entropy + mse)
 
         KL_loss =self.beta*(-0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp()))
-        return (rec_loss + KL_loss)/x.size(0), rec_loss/x.size(0), KL_loss/x.size(0), mse/x.size(0)
+        return (rec_loss + KL_loss), rec_loss, KL_loss, mse
     
     
     def training_step(self, batch, batch_idx):
