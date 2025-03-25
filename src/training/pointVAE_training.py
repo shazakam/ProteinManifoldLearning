@@ -112,11 +112,11 @@ if __name__ == "__main__":
     n_trials = 10
 
     # Create data subsets
-    train_subset = TensorDataset(torch.load('../data/processed/point/Pfam_Point_Processed_tensors/Pfam_data_train.pt'))
-    val_subset = TensorDataset(torch.load('../data/processed/point/Pfam_Point_Processed_tensors/Pfam_data_val.pt'))
+    train_subset = TensorDataset(torch.load('data/processed/point/Pfam_Point_Processed_tensors/Pfam_data_train.pt'))
+    val_subset = TensorDataset(torch.load('data/processed/point/Pfam_Point_Processed_tensors/Pfam_data_val.pt'))
 
     point_train_dataloader = DataLoader(train_subset, batch_size = 128)
-    point_val_dataloader = DataLoader(train_subset, batch_size = 128)
+    point_val_dataloader = DataLoader(val_subset, batch_size = 128)
 
     # Run Optuna study
     print('Creating Study')
