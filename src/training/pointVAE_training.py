@@ -42,7 +42,7 @@ def objective(trial, point_train_dataloader, point_val_dataloader, dataset_name)
     
     # beta_increment_suggestion = trial.suggest_categorical("beta_increment_suggestion", [0.05, 0.1, 0.5, 1])
     beta_increment_suggestion = 0
-    beta = 1
+    beta = trial.suggest_categorical("beta_suggestion", [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1])
     # Model Checkpoints and saving
     checkpoint_callback = ModelCheckpoint(
     monitor='val_loss_epoch',
