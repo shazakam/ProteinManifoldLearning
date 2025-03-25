@@ -11,6 +11,7 @@ import sys
 import random
 import optuna
 import pandas as pd
+import datetime
 
 # Load config
 def load_config(config_file="config.yaml"):
@@ -35,17 +36,20 @@ def get_optimizer(optimizer):
 def objective(trial, point_train_dataloader, point_val_dataloader, dataset_name):
     latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [16, 32, 64, 128, 256])
     global_feature_size_suggestion = trial.suggest_categorical("global_feat_suggestion", [128, 256, 512, 1024])
-    beta_increment_suggestion = trial.suggest_categorical("beta_increment_suggestion", [0.05, 0.1, 0.5, 1])
+
     conv_hidden_dim_suggestion = trial.suggest_categorical("conv_hidden_suggestion", [32, 64, 128, 256])
     hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [256, 512, 1024])
     
+    # beta_increment_suggestion = trial.suggest_categorical("beta_increment_suggestion", [0.05, 0.1, 0.5, 1])
+    beta_increment_suggestion = 0
+    beta = 1
     # Model Checkpoints and saving
     checkpoint_callback = ModelCheckpoint(
     monitor='val_loss_epoch',
     save_top_k=1,
     mode = 'min',
     dirpath=f'trained_models/{dataset_name}/point_vae/{trial.study.study_name}/',  # Folder to save checkpoints
-    filename=f'{trial.number}_LD{latent_dim_suggestion}_GF{global_feature_size_suggestion}_BetaInc{beta_increment_suggestion}',   # Checkpoint file name
+    filename=f'{trial.number}_LD{latent_dim_suggestion}_GF{global_feature_size_suggestion}_BetaInc{beta_increment_suggestion}_Beta{beta}',   # Checkpoint file name
     )
 
     # Define Model and Trainer
@@ -66,7 +70,7 @@ def objective(trial, point_train_dataloader, point_val_dataloader, dataset_name)
                         optimizer = optimizer,
                         optimizer_param = optimzer_param,
                         global_feature_size = global_feature_size_suggestion, 
-                        beta=0.01,
+                        beta = beta,
                         beta_cycle=20,
                         beta_increment=beta_increment_suggestion,
                         conv_hidden_dim = conv_hidden_dim_suggestion,
@@ -85,6 +89,7 @@ if __name__ == "__main__":
     # config = load_config("src/training/training_config.yaml")
 
     dataset_name = input('Dataset ')
+    experiment_type = input('Experiment type ')
 
     # Set random seed for reproducibility
     torch.manual_seed(42)
@@ -97,30 +102,37 @@ if __name__ == "__main__":
     elif dataset_name == 'GO':
         dataset = GeneOntologyDataset(root='data').to_point().torch()
     elif dataset_name == 'Pfam':
-        dataset = ProteinFamilyDataset(root='data').to_point().torch()
+        print("Loading Pre-processed Point Dataset")
+        #dataset = ProteinFamilyDataset(root='data').to_point().torch()
     else:
         print('Other datasets not used at the moment')
         sys.exit()
 
     max_seq_len = 500
-    idx_list = range(len(dataset))
-    subset_size = int(len(dataset)//10)
-    val_idx = random.sample(idx_list, subset_size)  # Get random subset
-    train_idx = list(set(idx_list) - set(val_idx))
+    # idx_list = range(len(dataset))
+    # subset_size = int(len(dataset)//10)
+    # val_idx = random.sample(idx_list, subset_size)  # Get random subset
+    # train_idx = list(set(idx_list) - set(val_idx))
 
     BATCH_SIZE = 128
     n_trials = 10
 
     # Create data subsets
-    train_subset = TensorDataset(torch.load('../data/processed/point/Pfam_Point_Processed_tensors/Pfam_data_train.pt'))
-    val_subset = TensorDataset(torch.load('../data/processed/point/Pfam_Point_Processed_tensors/Pfam_data_val.pt'))
+    train_subset = TensorDataset(torch.load('data/processed/point/Pfam_Point_Processed_tensors/Pfam_data_train.pt'))
+    val_subset = TensorDataset(torch.load('data/processed/point/Pfam_Point_Processed_tensors/Pfam_data_val.pt'))
 
     point_train_dataloader = DataLoader(train_subset, batch_size = 128)
     point_val_dataloader = DataLoader(train_subset, batch_size = 128)
 
+    # Get current time
+    current_time = datetime.datetime.now()
+
+    # Format the time as hour-day-month
+    formatted_time = current_time.strftime("%H-%d-%m")
+
     # Run Optuna study
     print('Creating Study')
-    study = optuna.create_study(study_name=f'{dataset_name}_PointVAE_study_BS{BATCH_SIZE}_MS{max_seq_len}_trials{n_trials}', direction="minimize")
+    study = optuna.create_study(study_name=f'{formatted_time}_{experiment_type}_{dataset_name}_PointVAE_study_BS{BATCH_SIZE}_MS{max_seq_len}_trials{n_trials}', direction="minimize")
     study.optimize(lambda trial: objective(trial, point_train_dataloader=point_train_dataloader, 
                                             point_val_dataloader = point_val_dataloader, 
                                            dataset_name = dataset_name), n_trials=n_trials)
