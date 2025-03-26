@@ -17,7 +17,7 @@ import datetime
 def BetaExperiment(seq_train_dataloader, seq_val_dataloader, dataset_name):
     latent_dim_suggestion = 16
     hidden_dim_suggestion = 512
-    beta_increments = [0.05, 0.1, 0.5, 1, 2, 5]
+    beta_increments = [0.0001, 0.001, 0.01, 0.1, 0.5, 1, 2]
 
     for idx, beta_inc in enumerate(beta_increments):
         # Model Checkpoints and saving
@@ -49,7 +49,7 @@ def BetaExperiment(seq_train_dataloader, seq_val_dataloader, dataset_name):
                             seq_len = max_seq_len, 
                             amino_acids = 21, 
                             hidden_dim = hidden_dim_suggestion,
-                            beta = 0.001,
+                            beta = 0.0001,
                             beta_cycle = 20,
                             beta_epoch_start = 20,
                             beta_increment = beta_inc,

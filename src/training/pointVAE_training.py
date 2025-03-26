@@ -57,7 +57,7 @@ def objective(trial, point_train_dataloader, point_val_dataloader, dataset_name)
     trainer = pl.Trainer(max_epochs = 100,
         accelerator="auto",
         devices="auto",
-        logger=TensorBoardLogger(save_dir=log_dir, name= f'PVAE_{trial.number}_LD{latent_dim_suggestion}_GF{global_feature_size_suggestion}_BetaInc{beta_increment_suggestion}_CH{conv_hidden_dim_suggestion}'),
+        logger=TensorBoardLogger(save_dir=log_dir, name= f'PVAE_{trial.number}_LD{latent_dim_suggestion}_GF{global_feature_size_suggestion}_HD{hidden_dim_suggestion}_Beta{beta}_BetaInc{beta_increment_suggestion}_CH{conv_hidden_dim_suggestion}'),
         callbacks=[checkpoint_callback],
         log_every_n_steps = 20
         )
