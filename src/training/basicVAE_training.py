@@ -114,7 +114,7 @@ def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, data
 if __name__ == "__main__":
 
     dataset_name = input('Dataset ')
-    experiment_type = input('Experiment type')
+    experiment_type = input('Experiment type ')
 
     # Set random seed for reproducibility
     torch.manual_seed(42)

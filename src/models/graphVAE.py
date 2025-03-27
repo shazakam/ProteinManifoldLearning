@@ -32,7 +32,7 @@ class GraphVAE(pl.LightningModule):
         self.fc1_dec = nn.Linear(self.latent_dim, hidden_dim)
         self.fc2_dec_feature = nn.Linear(hidden_dim, seq_len*self.amino_acids)
 
-        self.fc_adj_dec = nn.Linear(self.latent_dim, seq_len*conv_hidden_dim)
+        self.fc_adj_dec = nn.Linear(self.latent_dim, 2*seq_len*conv_hidden_dim)
 
         # Activation Functions
         self.tanh = nn.Tanh()
@@ -86,7 +86,7 @@ class GraphVAE(pl.LightningModule):
         return z_new
     
     def inner_product_decoder(self, x):
-        x = x.reshape(-1, self.seq_len, self.conv_hidden_dim)
+        x = x.reshape(-1, self.seq_len, 2*self.conv_hidden_dim)
         x = self.sigmoid(torch.bmm(x, x.permute(0,2,1))) 
         return x
     
