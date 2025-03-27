@@ -75,7 +75,7 @@ def objective(trial, graph_train_dataloader, graph_val_dataloader, dataset_name)
                      optimizer_param = optimizer_param, 
                      seq_len = 500, 
                      amino_acids = 21, 
-                     conv_hidden_dim = conv_hidden_dim_suggestion, 
+                     hidden_node_features = conv_hidden_dim_suggestion, 
                      hidden_dim=hidden_dim_suggestion, 
                      beta = beta_suggestion)
 
