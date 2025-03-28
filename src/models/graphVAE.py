@@ -6,7 +6,7 @@ from torch_geometric.nn import GAE, VGAE, GCNConv, TopKPooling, global_mean_pool
 from torch_geometric.utils import to_dense_batch, to_dense_adj
 
 class GraphVAE(pl.LightningModule):
-    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 20, conv_hidden_dim = 16, hidden_dim = 512, beta = 1, reconstruction_loss_weight = 1):
+    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 20, conv_hidden_dim = 16, hidden_dim = 512, beta = 1, beta_increment = 0,  beta_epoch_start = 20, beta_cycle = 10, reconstruction_loss_weight = 1):
 
         super().__init__()
         self.save_hyperparameters()
@@ -20,6 +20,9 @@ class GraphVAE(pl.LightningModule):
         self.input_dim = self.amino_acids*self.seq_len
         self.conv_hidden_dim = conv_hidden_dim
         self.reconstruction_loss_weight = reconstruction_loss_weight
+        self.beta_increment = beta_increment
+        self.beta_epoch_start = beta_epoch_start
+        self.beta_cycle = beta_cycle
 
         # Encoder
         self.conv1 = GCNConv(self.amino_acids, self.conv_hidden_dim)
@@ -111,13 +114,13 @@ class GraphVAE(pl.LightningModule):
         x_true_indices = x_true_feature.argmax(dim=-1)
         x_true_indices[torch.where(torch.sum(x_true_feature, dim = -1) == 0)] = -1
 
-        feature_construction_loss = torch.nn.functional.cross_entropy(logit_feature.permute(0,2,1),x_true_indices, reduction='sum', ignore_index=-1)
+        feature_construction_loss = torch.nn.functional.cross_entropy(logit_feature.permute(0,2,1),x_true_indices, reduction='mean', ignore_index=-1)
         adjacency_construction_loss = self.BCE_Loss(adj_matrix, x, x_true_indices)
 
         rec_loss =  self.reconstruction_loss_weight*(feature_construction_loss+adjacency_construction_loss)
         KL_loss = self.beta*(-0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp()))
 
-        return (rec_loss + KL_loss) / batch_size, rec_loss/ batch_size, KL_loss/ batch_size
+        return rec_loss + KL_loss/batch_size, rec_loss, KL_loss/ batch_size
     
     
     def training_step(self, batch, batch_idx):
@@ -165,3 +168,7 @@ class GraphVAE(pl.LightningModule):
     
     def on_train_epoch_end(self):
         self.log("learning_rate", self.trainer.optimizers[0].param_groups[0]['lr'], prog_bar=True)
+
+        if self.current_epoch >= self.beta_epoch_start and (self.current_epoch - self.beta_epoch_start%self.beta_cycle) % self.beta_cycle == 0:
+            self.beta += self.beta_increment  # Increase by a small amount
+            self.log("beta", self.beta, prog_bar=True)  

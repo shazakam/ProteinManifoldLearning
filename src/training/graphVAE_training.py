@@ -39,6 +39,8 @@ def objective(trial, graph_train_dataloader, graph_val_dataloader, dataset_name)
     hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [128, 256, 512])
     beta_suggestion = trial.suggest_categorical("beta_suggestion", [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2])
     conv_hidden_dim_suggestion = trial.suggest_categorical("conv_hidden_suggestion", [32, 64, 128])
+    lr_suggestion = trial.suggest_float("lr_suggestion",0.0001, 0.001, step = 0.001)
+    
 
     # Model Checkpoints and saving
     checkpoint_callback = ModelCheckpoint(
@@ -46,7 +48,7 @@ def objective(trial, graph_train_dataloader, graph_val_dataloader, dataset_name)
     save_top_k=1,
     mode = 'min',
     dirpath=f'trained_models/{dataset_name}/graphvae/{trial.study.study_name}/',  # Folder to save checkpoints
-    filename=f'{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_suggestion}_GCH{conv_hidden_dim_suggestion}',   # Checkpoint file name
+    filename=f'{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_suggestion}_GCH{conv_hidden_dim_suggestion}_LR{lr_suggestion}',   # Checkpoint file name
     )
 
     # Early Stopping to avoid overfitting
@@ -62,14 +64,14 @@ def objective(trial, graph_train_dataloader, graph_val_dataloader, dataset_name)
     trainer = pl.Trainer(max_epochs = 100,
         accelerator="auto",
         devices="auto",
-        logger=TensorBoardLogger(save_dir=log_dir, name= f'GraphVAE_{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_suggestion}_GCH{conv_hidden_dim_suggestion}'),
+        logger=TensorBoardLogger(save_dir=log_dir, name= f'GraphVAE_{trial.number}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_suggestion}_GCH{conv_hidden_dim_suggestion}_LR{lr_suggestion}'),
         callbacks=[early_stop_callback, checkpoint_callback],
         log_every_n_steps = 20
         )
     
     # Initialise Optimizer, Model anad begin training
     optimizer = torch.optim.AdamW
-    optimizer_param = {'lr':0.001}
+    optimizer_param = {'lr':lr_suggestion}
 
     model = GraphVAE(latent_dim = latent_dim_suggestion, 
                      optimizer = optimizer, 
