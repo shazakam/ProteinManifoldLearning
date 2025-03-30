@@ -124,7 +124,7 @@ if __name__ == "__main__":
     # Create data subsets
     dataset = load_graph_data(dataset)
     graph_train_dataloader = DataLoader(Subset(dataset, train_idx).dataset, batch_size=BATCH_SIZE, shuffle=True)
-    graph_val_dataloader = DataLoader(Subset(dataset, train_idx).dataset,batch_size=BATCH_SIZE, shuffle=False)
+    graph_val_dataloader = DataLoader(Subset(dataset, val_idx).dataset,batch_size=BATCH_SIZE, shuffle=False)
 
     # Get current time
     current_time = datetime.datetime.now()

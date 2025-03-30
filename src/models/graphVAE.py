@@ -120,7 +120,7 @@ class GraphVAE(pl.LightningModule):
         rec_loss =  self.reconstruction_loss_weight*(feature_construction_loss+adjacency_construction_loss)
         KL_loss = self.beta*(-0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp()))
 
-        return rec_loss + KL_loss/batch_size, rec_loss, KL_loss/ batch_size
+        return rec_loss + KL_loss/batch_size, rec_loss, adjacency_construction_loss, KL_loss/ batch_size
     
     
     def training_step(self, batch, batch_idx):
@@ -128,8 +128,8 @@ class GraphVAE(pl.LightningModule):
         x = batch
         batch_size = x.batch[-1]+1
         rep_z, x_mu, x_logvar, x_rec, logit_feature, adj_matrix = self(x)
-        loss, rec_loss, KL_loss = self.ELBO(x, logit_feature, adj_matrix, x_mu, x_logvar)
-
+        loss, rec_loss, adjacency_construction_loss, KL_loss = self.ELBO(x, logit_feature, adj_matrix, x_mu, x_logvar)
+        self.log("train_adj loss", adjacency_construction_loss,on_step=True, on_epoch=True, prog_bar=True)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, batch_size=batch_size)
         self.log("train_rec_loss", rec_loss, on_epoch=True, on_step=False, prog_bar=True, batch_size=batch_size)
         self.log("train_KL_loss", KL_loss, on_epoch=True, on_step=False, prog_bar=True, batch_size=batch_size)
@@ -141,8 +141,9 @@ class GraphVAE(pl.LightningModule):
         x = batch
         batch_size = x.batch[-1]+1
         rep_z, x_mu, x_logvar, x_rec, logit_feature, adj_matrix = self(x)
-        loss, rec_loss, KL_loss = self.ELBO(x, logit_feature, adj_matrix, x_mu, x_logvar)
-
+        loss, rec_loss,adjacency_construction_loss, KL_loss = self.ELBO(x, logit_feature, adj_matrix, x_mu, x_logvar)
+        
+        self.log("val_adj loss", adjacency_construction_loss, on_step=True, on_epoch=True)
         self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, batch_size=batch_size)
         self.log("val_rec_loss", rec_loss, on_epoch=True, on_step=False, prog_bar=True, batch_size=batch_size)
         self.log("val_KL_loss", KL_loss, on_epoch=True, on_step=False, prog_bar=True, batch_size=batch_size)

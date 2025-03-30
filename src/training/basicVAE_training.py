@@ -1,7 +1,7 @@
 import yaml
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
-from ..models.basicVae import LitBasicVae 
+from ..models.basicVae_2 import LitBasicVae 
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from ..dataset_classes.sequenceDataset import *
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     train_idx = list(set(idx_list) - set(val_idx))
 
     BATCH_SIZE = 128
-    n_trials = 30
+    n_trials = 10
     # Create data subsets
     train_subset = SequenceDataset(Subset(dataset, train_idx), max_seq_len)
     val_subset = SequenceDataset(Subset(dataset, val_idx), max_seq_len)
