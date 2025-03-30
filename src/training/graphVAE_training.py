@@ -35,9 +35,9 @@ def get_optimizer(optimizer):
 
 
 def objective(trial, graph_train_dataloader, graph_val_dataloader, dataset_name):
-    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [2, 16, 32, 64, 128])
+    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [16, 32, 64, 128])
     hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [128, 256, 512])
-    beta_suggestion = trial.suggest_categorical("beta_suggestion", [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2])
+    beta_suggestion = trial.suggest_categorical("beta_suggestion", [0.001, 0.005, 0.05, 0.1, 1])
     conv_hidden_dim_suggestion = trial.suggest_categorical("conv_hidden_suggestion", [32, 64, 128])
     lr_suggestion = trial.suggest_float("lr_suggestion",0.0001, 0.001, step = 0.001)
     
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     train_idx = list(set(idx_list) - set(val_idx))
 
     BATCH_SIZE = 128
-    n_trials = 3
+    n_trials = 8
 
     # Create data subsets
     dataset = load_graph_data(dataset)
