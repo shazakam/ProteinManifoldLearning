@@ -132,6 +132,16 @@ if __name__ == "__main__":
     graph_train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     graph_val_dataloader = DataLoader(val_dataset,batch_size=BATCH_SIZE, shuffle=False)
 
+    print('---- LENGTH GRAPH TRAIN DATALOADER ----')
+    print(f'-----{len(graph_train_dataloader)}------')
+
+    print('---- LENGTH GRAPH VAL DATALOADER ----')
+    print(f'-----{len(graph_val_dataloader)}------')
+
+    if len(graph_val_dataloader) >= len(graph_train_dataloader):
+        print('POTENTIAL DATALEAK CHECK DATALOADERS')
+        sys.exit()
+
 
     # Get current time
     current_time = datetime.datetime.now()

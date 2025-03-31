@@ -17,6 +17,7 @@ import datetime
 def BetaExperiment(seq_train_dataloader, seq_val_dataloader, dataset_name):
     latent_dim_suggestion = 16
     hidden_dim_suggestion = 512
+    starting_beta = 0
     beta_increments = [0.0001, 0.001, 0.01, 0.1, 0.5, 1, 2]
 
     for idx, beta_inc in enumerate(beta_increments):
@@ -26,7 +27,7 @@ def BetaExperiment(seq_train_dataloader, seq_val_dataloader, dataset_name):
         save_top_k=1,
         mode = 'max',
         dirpath=f'trained_models/{dataset_name}/BVAE/BETA_EXP/',  # Folder to save checkpoints
-        filename=f'{idx}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_inc}',   # Checkpoint file name
+        filename=f'{idx}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{starting_beta}_BetaInc{beta_inc}',   # Checkpoint file name
         ) 
 
         # Define Model and Trainer
@@ -49,7 +50,7 @@ def BetaExperiment(seq_train_dataloader, seq_val_dataloader, dataset_name):
                             seq_len = max_seq_len, 
                             amino_acids = 21, 
                             hidden_dim = hidden_dim_suggestion,
-                            beta = 0.0001,
+                            beta = starting_beta,
                             beta_cycle = 20,
                             beta_epoch_start = 20,
                             beta_increment = beta_inc,
@@ -89,7 +90,7 @@ if __name__ == "__main__":
     train_idx = list(set(idx_list) - set(val_idx))
 
     BATCH_SIZE = 128
-    n_trials = 30
+
     # Create data subsets
     train_subset = SequenceDataset(Subset(dataset, train_idx), max_seq_len)
     val_subset = SequenceDataset(Subset(dataset, val_idx), max_seq_len)
