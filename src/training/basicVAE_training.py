@@ -1,7 +1,7 @@
 import yaml
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
-from ..models.basicVae_2 import LitBasicVae 
+from ..models.basicVae import LitBasicVae 
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from ..dataset_classes.sequenceDataset import *
@@ -35,9 +35,9 @@ def get_optimizer(optimizer):
 
 def objective(trial, seq_train_dataloader, seq_val_dataloader, max_seq_len, dataset_name):
     # Sweep
-    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [16, 32,64, 96, 128, 160, 192])
-    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [256,512, 800, 1024])
-    beta = trial.suggest_categorical("beta_suggestion", [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1])
+    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [2]) #16, 32,64, 96, 128, 160, 192])
+    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [512]) #[256,512, 800, 1024])
+    beta = trial.suggest_categorical("beta_suggestion", [0.005])#[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1])
 
     # beta_suggestion = trial.suggest_categorical("beta_suggestion", [0.1, 0.5, 1, 2, 10])
 
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     train_idx = list(set(idx_list) - set(val_idx))
 
     BATCH_SIZE = 128
-    n_trials = 10
+    n_trials = 1
     # Create data subsets
     train_subset = SequenceDataset(Subset(dataset, train_idx), max_seq_len)
     val_subset = SequenceDataset(Subset(dataset, val_idx), max_seq_len)

@@ -2,6 +2,7 @@ import torch
 import torch_geometric
 from proteinshake.datasets import ProteinFamilyDataset
 from torch_geometric.transforms import Pad
+from torch_geometric.data import Dataset
 
 # One hot encodes graph nodes in dataset
 def load_graph_data(dataset, amnino_acids = 20, max_seq_len = 500):
@@ -11,7 +12,17 @@ def load_graph_data(dataset, amnino_acids = 20, max_seq_len = 500):
         data.x = torch.nn.functional.one_hot(data.x, num_classes=amnino_acids).float()
 
         dataset[idx] = pad_transform(data)
-        
-
 
     return dataset
+
+
+class GraphListDataset(Dataset):
+    def __init__(self, graph_list):
+        super(GraphListDataset, self).__init__()
+        self.graph_list = graph_list
+    
+    def len(self):
+        return len(self.graph_list)
+    
+    def get(self, idx):
+        return self.graph_list[idx]

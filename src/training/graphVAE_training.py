@@ -118,13 +118,20 @@ if __name__ == "__main__":
     val_idx = random.sample(idx_list, subset_size)  # Get random subset
     train_idx = list(set(idx_list) - set(val_idx))
 
+
     BATCH_SIZE = 128
-    n_trials = 8
+    n_trials = 10
 
     # Create data subsets
     dataset = load_graph_data(dataset)
-    graph_train_dataloader = DataLoader(Subset(dataset, train_idx).dataset, batch_size=BATCH_SIZE, shuffle=True)
-    graph_val_dataloader = DataLoader(Subset(dataset, val_idx).dataset,batch_size=BATCH_SIZE, shuffle=False)
+    train_datalist = [dataset[idx] for idx in train_idx]
+    val_datalist = [dataset[idx] for idx in val_idx]
+    train_dataset = GraphListDataset(train_datalist)
+    val_dataset  = GraphListDataset(val_datalist)
+
+    graph_train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    graph_val_dataloader = DataLoader(val_dataset,batch_size=BATCH_SIZE, shuffle=False)
+
 
     # Get current time
     current_time = datetime.datetime.now()
