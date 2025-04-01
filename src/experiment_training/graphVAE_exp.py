@@ -16,11 +16,11 @@ import datetime
 
 
 def BetaExperiment(graph_train_dataloader, graph_val_dataloader, dataset_name):
-    latent_dim_suggestion = '' #
-    hidden_dim_suggestion = '' #
-    beta_suggestion = '' #
-    conv_hidden_dim_suggestion = '' #
-    lr_suggestion = '' # CHANGE TO FINAL VALUES
+    latent_dim_suggestion = 128 #
+    hidden_dim_suggestion = 512 #
+    beta_suggestion = 0.1 #
+    conv_hidden_dim_suggestion = 64 #
+    lr_suggestion = 0.0001 # CHANGE TO FINAL VALUES
     beta_increments = [0.0001, 0.001, 0.01, 0.1]
     starting_beta = 0
     for idx, beta_inc in enumerate(beta_increments):
@@ -72,13 +72,13 @@ if __name__ == "__main__":
     
     # Load Data
     if dataset_name== 'ProteinLigand':
-        dataset = ProteinLigandInterfaceDataset(root='data').to_point().torch()
+        dataset = ProteinLigandInterfaceDataset(root='data').to_graph(eps = 8).pyg()
     elif dataset_name == 'AlphaFold':
-        dataset = AlphaFoldDataset(root='data').to_point().torch()
+        dataset = AlphaFoldDataset(root='data').to_graph(eps = 8).pyg()
     elif dataset_name == 'GO':
-        dataset = GeneOntologyDataset(root='data').to_point().torch()
+        dataset = GeneOntologyDataset(root='data').to_graph(eps = 8).pyg()
     elif dataset_name == 'Pfam':
-        dataset = ProteinFamilyDataset(root='data').to_point().torch()
+        dataset = ProteinFamilyDataset(root='data').to_graph(eps = 8).pyg()
     else:
         print('Other datasets not used at the moment')
         sys.exit()

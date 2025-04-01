@@ -18,7 +18,7 @@ def BetaExperiment(seq_train_dataloader, seq_val_dataloader, dataset_name):
     latent_dim_suggestion = 16
     hidden_dim_suggestion = 512
     starting_beta = 0
-    beta_increments = [0.0001, 0.001, 0.01, 0.1, 0.5, 1, 2]
+    beta_increments = [0.0001, 0.001, 0.01, 0.1]
 
     for idx, beta_inc in enumerate(beta_increments):
         # Model Checkpoints and saving
