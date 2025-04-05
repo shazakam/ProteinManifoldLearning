@@ -18,8 +18,7 @@ import datetime
 def BetaExperiment(graph_train_dataloader, graph_val_dataloader, dataset_name):
     latent_dim_suggestion = 128 #
     hidden_dim_suggestion = 512 #
-    beta_suggestion = 0.1 #
-    conv_hidden_dim_suggestion = 64 #
+    conv_hidden_dim_suggestion = 96 #
     lr_suggestion = 0.0001 # CHANGE TO FINAL VALUES
     beta_increments = [0.0001, 0.001, 0.01, 0.1]
     starting_beta = 0
@@ -52,10 +51,11 @@ def BetaExperiment(graph_train_dataloader, graph_val_dataloader, dataset_name):
                         optimizer = optimizer, 
                         optimizer_param = optimizer_param, 
                         seq_len = 500, 
-                        amino_acids = 20, 
+                        amino_acids = 20,
                         conv_hidden_dim = conv_hidden_dim_suggestion, 
                         hidden_dim=hidden_dim_suggestion, 
-                        beta = beta_suggestion)
+                        beta = starting_beta,
+                        beta_increment=beta_inc)
 
         
         trainer.fit(model, graph_train_dataloader, graph_val_dataloader)
