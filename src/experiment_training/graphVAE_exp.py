@@ -16,7 +16,7 @@ import datetime
 
 
 def BetaExperiment(graph_train_dataloader, graph_val_dataloader, dataset_name):
-    latent_dim_suggestion = 128 #
+    latent_dim_suggestion = 32 #
     hidden_dim_suggestion = 512 #
     conv_hidden_dim_suggestion = 96 #
     lr_suggestion = 0.0001 # CHANGE TO FINAL VALUES
