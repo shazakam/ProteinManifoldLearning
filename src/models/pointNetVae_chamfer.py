@@ -52,6 +52,7 @@ class PointNetVAE(pl.LightningModule):
 
 
     def forward(self, x):
+
         labels = x[:,:,3:].float()
         x = x[:, :, :3]
         reparam_z, x_mu, x_logvar = self.encode(x, labels)
@@ -132,13 +133,13 @@ class PointNetVAE(pl.LightningModule):
         cross_entropy = torch.nn.functional.cross_entropy(logit.permute(0,2,1), x_true_indices, reduction='mean', ignore_index=-1)
         rec_loss = self.reconstruction_loss_weight*(cross_entropy + chamfer)
 
-        KL_loss =self.beta*(-0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp()))
-        return (rec_loss + KL_loss), rec_loss, KL_loss, chamfer
+        KL_loss = self.beta*(-0.5 * torch.sum(1 + x_logvar - x_mu.pow(2) - x_logvar.exp()))
+        return (rec_loss + KL_loss/x.shape[0]), rec_loss, KL_loss/x.shape[0], chamfer
     
     
     def training_step(self, batch, batch_idx):
 
-        x = batch[0]
+        x = batch
         rep_z, x_mu, x_logvar, x_rec, logit = self(x)
         
         loss, rec_loss, KL_loss, mse = self.ELBO(x, logit, x_mu, x_logvar)
@@ -152,7 +153,7 @@ class PointNetVAE(pl.LightningModule):
     
     def validation_step(self, batch, batch_idx):
 
-        x = batch[0]
+        x = batch
         rep_z, x_mu, x_logvar, x_rec, logit = self(x)
         loss, rec_loss, KL_loss, mse = self.ELBO(x, logit, x_mu, x_logvar)
         # transform_loss = self.orthogonal_transform_regulariser(feature_transform, input_transform)
