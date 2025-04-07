@@ -114,7 +114,7 @@ def one_hot_encode_seq(seq, max_seq_len):
     
     return seq_encoded
 
-def make_one_hot_data_list(dataset, max_seq_len, return_proteins = True):
+def make_one_hot_data_list(dataset, max_seq_len, return_proteins = True, max_radius = 1):
     one_hot_dataset = []
     proteins = []
 
@@ -127,7 +127,7 @@ def make_one_hot_data_list(dataset, max_seq_len, return_proteins = True):
             if return_proteins:
                 proteins.append(sample)
 
-            one_hot_seq = one_hot_encode_seq(sample[1]['protein']['sequence'], max_seq_len)
+            one_hot_seq = one_hot_encode_seq(sample[1]['protein']['sequence'], max_seq_len) / max_radius
             one_hot_dataset.append(one_hot_seq)
 
     if return_proteins:
@@ -135,7 +135,14 @@ def make_one_hot_data_list(dataset, max_seq_len, return_proteins = True):
         return one_hot_dataset, proteins
     else:
         return one_hot_dataset
-    
+
+def find_max_radius(dataset):
+    max_radius = 0
+    for sample in tqdm(dataset):
+        radius = torch.max(torch.sqrt(torch.sum(sample[:,:3]**2, dim = -1)))
+        if radius > max_radius:
+            max_radius = radius
+    return max_radius
 
 
 
