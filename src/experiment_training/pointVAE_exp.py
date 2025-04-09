@@ -1,7 +1,7 @@
 import yaml
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
-from ..models.pointNetVae import PointNetVAE 
+from src.models.PointNetVae_chamfer_split import PointNetVAE
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from torch.utils.data import TensorDataset
@@ -13,12 +13,12 @@ import optuna
 import pandas as pd
 
 def BetaExperiment(point_train_dataloader, point_val_dataloader, dataset_name):
-    beta_increments = [0.05, 0.1, 0.5, 1, 2, 5]
-    latent_dim = 16
+    beta_increments = [0.0001, 0.001, 0.01, 0.1]
+    latent_dim = 64
     global_feature_size = 512
-    conv_hidden = 512
+    conv_hidden = 4
     hidden_dim = 512
-    beta = 0.01
+    starting_beta = 0
 
     for idx, beta_inc in enumerate(beta_increments):
         # Model Checkpoints and saving
@@ -31,7 +31,7 @@ def BetaExperiment(point_train_dataloader, point_val_dataloader, dataset_name):
         )
 
         # Define Model and Trainer
-        log_dir = f'experiments/training_logs/latent_PointVAE/BETA{beta_inc}_{dataset_name}'
+        log_dir = f'experiments/training_logs/latent_PointVAE/BETA_EXP'
         trainer = pl.Trainer(max_epochs = 100,
             accelerator="auto",
             devices="auto",
@@ -48,7 +48,7 @@ def BetaExperiment(point_train_dataloader, point_val_dataloader, dataset_name):
                             optimizer = optimizer,
                             optimizer_param = optimzer_param,
                             global_feature_size = global_feature_size, 
-                            beta=beta,
+                            beta=starting_beta,
                             beta_increment=beta_inc,
                             conv_hidden_dim = conv_hidden,
                             hidden_dim = hidden_dim)
@@ -88,8 +88,8 @@ if __name__ == "__main__":
     train_idx = list(set(idx_list) - set(val_idx))
 
     # Create data subsets
-    train_subset = TensorDataset(torch.load('../data/processed/point/Pfam_Point_Processed_tensors/point_data_train.pt'))
-    val_subset = TensorDataset(torch.load('../data/processed/point/Pfam_Point_Processed_tensors/point_data_val.pt'))
+    train_subset = TensorDataset(torch.load('data/processed/point/Pfam_Point_norm_proc/Pfam_data_train_norm.pt'))
+    val_subset = TensorDataset(torch.load('data/processed/point/Pfam_Point_norm_proc/Pfam_data_val_norm.pt'))
 
     point_train_dataloader = DataLoader(train_subset, batch_size = 128)
     point_val_dataloader = DataLoader(train_subset, batch_size = 128)

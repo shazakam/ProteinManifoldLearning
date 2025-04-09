@@ -58,7 +58,7 @@ class PointNetVAE(pl.LightningModule):
 
 
     def forward(self, x):
-        # x = x[0
+
         labels = x[:,:,3:].float()
         x = x[:, :, :3]
         reparam_z, x_mu, x_logvar = self.encode(x, labels)
@@ -85,7 +85,7 @@ class PointNetVAE(pl.LightningModule):
         x = x.reshape(-1, self.seq_len*self.conv_hidden_dim*4)
         # print(x.shape)
         # global_features = self.max_pool(x).squeeze()
-        global_features = self.point_representation(x)
+        global_features = self.tanh(self.point_representation(x))
         global_features = torch.cat((global_features, labels), dim = -1)
 
         x_mu = self.fc1_enc_mu(global_features)

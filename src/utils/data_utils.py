@@ -44,12 +44,12 @@ def filter_by_max_length_and_pad(dataset, max_seq_len, return_proteins = False):
         org_protein_data = []
         for sample in tqdm(dataset):
             seq_leng = len(sample[1]['protein']['sequence'])
-            xyz_mean = torch.mean(sample[0][:,:3], dim=0)
+            # xyz_mean = torch.mean(sample[0][:,:3], dim=0)
             if seq_leng <= max_seq_len:
                 sample_data = sample[0]
-                xyz_mean = torch.mean(sample_data[:,:3], dim=0)
+                # xyz_mean = torch.mean(sample_data[:,:3], dim=0)
 
-                sample_data[:,:3] = (sample_data[:,:3] - xyz_mean)
+                # sample_data[:,:3] = (sample_data[:,:3] - xyz_mean)
                 padded_data = pad_cloud_data(sample_data, max_seq_len)
                 proteins.append(padded_data)
                 org_protein_data.append(sample)
@@ -61,9 +61,9 @@ def filter_by_max_length_and_pad(dataset, max_seq_len, return_proteins = False):
             seq_leng = len(sample[1]['protein']['sequence'])
             if seq_leng <= max_seq_len:
                 sample_data = sample[0]
-                xyz_mean = torch.mean(sample_data[:,:3], dim=0)
+                # xyz_mean = torch.mean(sample_data[:,:3], dim=0)
 
-                sample_data[:,:3] = (sample_data[:,:3] - xyz_mean)
+                # sample_data[:,:3] = (sample_data[:,:3] - xyz_mean)
                 padded_data = pad_cloud_data(sample_data, max_seq_len)
                 proteins.append(padded_data)
         return proteins

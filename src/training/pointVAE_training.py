@@ -1,7 +1,8 @@
 import yaml
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
-from ..models.pointNetVae import PointNetVAE 
+# from ..models.pointNetVae import PointNetVAE 
+from src.models.PointNetVae_chamfer_split import PointNetVAE
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from torch.utils.data import TensorDataset
@@ -34,15 +35,15 @@ def get_optimizer(optimizer):
 
 
 def objective(trial, point_train_dataloader, point_val_dataloader, dataset_name):
-    latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [16, 32, 64, 128, 256])
-    global_feature_size_suggestion = trial.suggest_categorical("global_feat_suggestion", [128, 256, 512, 1024])
+    latent_dim_suggestion = 2 #trial.suggest_categorical("latent_dim_suggestion", [16, 32, 64, 128, 256])
+    global_feature_size_suggestion = 512 #trial.suggest_categorical("global_feat_suggestion", [128, 256, 512])
 
-    conv_hidden_dim_suggestion = trial.suggest_categorical("conv_hidden_suggestion", [32, 64, 128, 256])
-    hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [256, 512, 1024])
+    conv_hidden_dim_suggestion = 4 #trial.suggest_categorical("conv_hidden_suggestion", [2,4,6,8])
+    hidden_dim_suggestion = 512 #trial.suggest_categorical("hidden_dim_suggestion", [256, 512, 1024])
     
     # beta_increment_suggestion = trial.suggest_categorical("beta_increment_suggestion", [0.05, 0.1, 0.5, 1])
     beta_increment_suggestion = 0
-    beta = trial.suggest_categorical("beta_suggestion", [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1])
+    beta = 0.005 #trial.suggest_categorical("beta_suggestion", [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1])
     # Model Checkpoints and saving
     checkpoint_callback = ModelCheckpoint(
     monitor='val_loss_epoch',
@@ -118,8 +119,8 @@ if __name__ == "__main__":
     n_trials = 10
 
     # Create data subsets
-    train_subset = TensorDataset(torch.load('data/processed/point/Pfam_Point_Processed_tensors/Pfam_data_train.pt'))
-    val_subset = TensorDataset(torch.load('data/processed/point/Pfam_Point_Processed_tensors/Pfam_data_val.pt'))
+    train_subset = TensorDataset(torch.load('data/processed/point/Pfam_Point_norm_proc/Pfam_data_train_norm.pt'))
+    val_subset = TensorDataset(torch.load('data/processed/point/Pfam_Point_norm_proc/Pfam_data_val_norm.pt'))
 
     point_train_dataloader = DataLoader(train_subset, batch_size = 128)
     point_val_dataloader = DataLoader(val_subset, batch_size = 128)
