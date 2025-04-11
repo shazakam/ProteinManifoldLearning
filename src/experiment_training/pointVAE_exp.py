@@ -70,7 +70,7 @@ def final_model_training(point_train_dataloader, point_val_dataloader, dataset_n
     save_top_k=1,
     mode = 'min',
     dirpath=f'trained_models/{dataset_name}/PVAE/FINAL_MODEL/',  # Folder to save checkpoints
-    filename=f'LD{latent_dim}_GF{global_feature_size}_BetaInc{beta_inc}',   # Checkpoint file name
+    filename=f'FINAL_PVAE_LD{latent_dim}_GF{global_feature_size}_BetaInc{beta_inc}_Beta{starting_beta}_HD{hidden_dim}_CH{conv_hidden}',   # Checkpoint file name
     )
 
     # Define Model and Trainer
@@ -78,7 +78,7 @@ def final_model_training(point_train_dataloader, point_val_dataloader, dataset_n
     trainer = pl.Trainer(max_epochs = 200,
         accelerator="auto",
         devices="auto",
-        logger=TensorBoardLogger(save_dir=log_dir, name= f'PVAE_FINAL_MODEL_LD{latent_dim}_GF{global_feature_size}_Beta{beta_inc}_CH{conv_hidden}'),
+        logger=TensorBoardLogger(save_dir=log_dir, name= f'PVAE_FINAL_MODEL_LD{latent_dim}_GF{global_feature_size}_BetaInc{beta_inc}_Beta{starting_beta}_HD{hidden_dim}_CH{conv_hidden}'),
         callbacks=[checkpoint_callback],
         log_every_n_steps = 20
         )
@@ -133,7 +133,19 @@ if __name__ == "__main__":
     val_subset = TensorDataset(torch.load('data/processed/point/Pfam_Point_norm_proc/Pfam_data_val_norm.pt'))
 
     point_train_dataloader = DataLoader(train_subset, batch_size = 128)
-    point_val_dataloader = DataLoader(train_subset, batch_size = 128)
+    point_val_dataloader = DataLoader(val_subset, batch_size = 128)
+
+    print('---- LENGTH POINT TRAIN DATALOADER ----')
+    print(f'-----{len(point_train_dataloader)}------')
+
+    print('---- LENGTH POINT VAL DATALOADER ----')
+    print(f'-----{len(point_val_dataloader)}------')
+
+    if len(point_val_dataloader) >= len(point_train_dataloader):
+        print('POTENTIAL DATALEAK CHECK DATALOADERS')
+        sys.exit()
+
+    
 
     if experiment_type == 'Beta':
         BetaExperiment(point_train_dataloader, point_val_dataloader, dataset_name)
