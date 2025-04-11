@@ -60,6 +60,53 @@ def BetaExperiment(seq_train_dataloader, seq_val_dataloader, dataset_name):
         
         trainer.fit(model, seq_train_dataloader, seq_val_dataloader)
 
+def final_model_training(seq_train_dataloader, seq_val_dataloader, dataset_name):
+    latent_dim_suggestion = 16
+    hidden_dim_suggestion = 512
+    starting_beta = 0.005
+    beta_inc = 0
+
+
+    # Model Checkpoints and saving
+    checkpoint_callback = ModelCheckpoint(
+    monitor='epoch',
+    save_top_k=1,
+    mode = 'max',
+    dirpath=f'trained_models/{dataset_name}/BVAE/FINAL_MODEL/',  # Folder to save checkpoints
+    filename=f'LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{starting_beta}_BetaInc{beta_inc}',   # Checkpoint file name
+    ) 
+
+    # Define Model and Trainer
+    log_dir = f'experiments/training_logs/latent_BVAE/FINAL_MODEL'
+    trainer = pl.Trainer(max_epochs = 200,
+        accelerator="auto",
+        devices="auto",
+        logger=TensorBoardLogger(save_dir=log_dir, name= f'BVAE_FINAL_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_inc}'),
+        callbacks=[checkpoint_callback],
+        log_every_n_steps = 20
+        )
+    
+    # Initialise Optimizer, Model anad begin training
+    optimizer = torch.optim.AdamW
+    optimzer_param = {'lr':0.0001}
+
+    model = LitBasicVae(latent_dim = latent_dim_suggestion, 
+                        optimizer = optimizer, 
+                        optimizer_param = optimzer_param,
+                        seq_len = max_seq_len, 
+                        amino_acids = 21, 
+                        hidden_dim = hidden_dim_suggestion,
+                        beta = starting_beta,
+                        beta_cycle = 20,
+                        beta_epoch_start = 20,
+                        beta_increment = beta_inc,
+                        dropout = 0,
+                        reconstruction_loss_weight = 1)
+
+    
+    trainer.fit(model, seq_train_dataloader, seq_val_dataloader)
+
+
 
 # Main function to run experiments
 if __name__ == "__main__":
@@ -105,6 +152,11 @@ if __name__ == "__main__":
 
     if experiment_type == 'Beta':
         BetaExperiment(seq_train_dataloader, seq_val_dataloader, dataset_name)
+
+    elif experiment_type == 'Final_Model':
+        np.save('basic_val_indices.npy', val_idx)
+        np.save('basic_train_indices.npy', train_idx)
+        final_model_training(seq_train_dataloader, seq_val_dataloader, dataset_name)
     else:
         exit
 

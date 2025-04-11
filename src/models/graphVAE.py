@@ -6,7 +6,7 @@ from torch_geometric.nn import GAE, VGAE, GCNConv, TopKPooling, global_mean_pool
 from torch_geometric.utils import to_dense_batch, to_dense_adj
 
 class GraphVAE(pl.LightningModule):
-    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 20, conv_hidden_dim = 16, hidden_dim = 512, beta = 1, beta_increment = 0,  beta_epoch_start = 20, beta_cycle = 10, reconstruction_loss_weight = 1):
+    def __init__(self, latent_dim, optimizer, optimizer_param, seq_len = 500, amino_acids = 21, conv_hidden_dim = 16, hidden_dim = 512, beta = 1, beta_increment = 0,  beta_epoch_start = 20, beta_cycle = 10, reconstruction_loss_weight = 1):
 
         super().__init__()
         self.save_hyperparameters()
@@ -96,7 +96,8 @@ class GraphVAE(pl.LightningModule):
     def BCE_Loss(self, adj_matrix, x, x_true_indices):
         adj_targ = []
         for batch in range(x.batch[-1]+1):
-            adj_targ.append(to_dense_adj(x[batch].edge_index, max_num_nodes=500).squeeze())
+            adjacency_matrix = to_dense_adj(x[batch].edge_index, max_num_nodes=500).squeeze().clamp(max=1.0) 
+            adj_targ.append(adjacency_matrix)
         adj_targ = torch.stack(adj_targ)
 
         valid_mask = (x_true_indices != -1).int() 
