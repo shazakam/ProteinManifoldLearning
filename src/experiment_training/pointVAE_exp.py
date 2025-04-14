@@ -16,7 +16,7 @@ def BetaExperiment(point_train_dataloader, point_val_dataloader, dataset_name):
     beta_increments = [0.0001, 0.001, 0.01, 0.1]
     latent_dim = 64
     global_feature_size = 512
-    conv_hidden = 4
+    conv_hidden = 8
     hidden_dim = 512
     starting_beta = 0
 
@@ -60,7 +60,7 @@ def final_model_training(point_train_dataloader, point_val_dataloader, dataset_n
     beta_inc = 0
     latent_dim = 64
     global_feature_size = 512
-    conv_hidden = 4
+    conv_hidden = 8
     hidden_dim = 512
     starting_beta = 0.005
 

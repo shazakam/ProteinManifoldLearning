@@ -171,6 +171,6 @@ if __name__ == "__main__":
     elif experiment_type == 'Final_Model':
         np.save('graph_val_indices.npy', val_idx)
         np.save('graph_train_indices.npy', train_idx)
-        final_model_training(graph_train_dataloader, graph_train_dataloader, dataset_name)
+        final_model_training(graph_train_dataloader, graph_val_dataloader, dataset_name)
     else:
         exit

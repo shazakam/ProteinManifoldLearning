@@ -21,7 +21,7 @@ def get_subset_leq_len(dataset, leq):
     data_subset = []
     for sample in dataset:
         seq_leng = len(sample[1]['protein']['sequence'])
-        if seq_leng <= leq:
+        if seq_leng < leq:
             data_subset.append(sample)
     return data_subset
 
@@ -45,7 +45,7 @@ def filter_by_max_length_and_pad(dataset, max_seq_len, return_proteins = False):
         for sample in tqdm(dataset):
             seq_leng = len(sample[1]['protein']['sequence'])
             # xyz_mean = torch.mean(sample[0][:,:3], dim=0)
-            if seq_leng <= max_seq_len:
+            if seq_leng < max_seq_len:
                 sample_data = sample[0]
                 # xyz_mean = torch.mean(sample_data[:,:3], dim=0)
 
@@ -59,7 +59,7 @@ def filter_by_max_length_and_pad(dataset, max_seq_len, return_proteins = False):
     else:
         for sample in tqdm(dataset):
             seq_leng = len(sample[1]['protein']['sequence'])
-            if seq_leng <= max_seq_len:
+            if seq_leng < max_seq_len:
                 sample_data = sample[0]
                 # xyz_mean = torch.mean(sample_data[:,:3], dim=0)
 
@@ -120,7 +120,7 @@ def make_one_hot_data_list(dataset, max_seq_len, return_proteins = True, max_rad
 
     for sample in tqdm(dataset):
 
-        if len(sample[1]['protein']['sequence']) > max_seq_len:
+        if len(sample[1]['protein']['sequence']) >= max_seq_len:
             continue
 
         else:
