@@ -45,8 +45,8 @@ class PointNetVAE(pl.LightningModule):
         self.tanh = nn.Tanh()
         self.soft = nn.Softmax(dim=-1)
 
-        self.point_representation = nn.Linear(conv_hidden_dim*4*self.seq_len, self.global_feature_size)
-        # self.max_pool = nn.MaxPool1d(kernel_size = seq_len)
+        self.point_representation = nn.Linear(conv_hidden_dim*4, self.global_feature_size)
+        self.max_pool = nn.MaxPool1d(kernel_size = seq_len)
 
         # Decoder
         self.point_dec_1 = nn.Linear(self.latent_dim, self.hidden_dim)
@@ -82,10 +82,10 @@ class PointNetVAE(pl.LightningModule):
         x = self.tanh(self.conv2(x))
         x = self.tanh(self.conv3(x))
         # print(x.shape)
-        x = x.reshape(-1, self.seq_len*self.conv_hidden_dim*4)
-        # print(x.shape)
-        # global_features = self.max_pool(x).squeeze()
-        global_features = self.tanh(self.point_representation(x))
+        # x = x.reshape(-1, self.seq_len*self.conv_hidden_dim*4)
+        x = x.reshape(-1,self.conv_hidden_dim*4, self.seq_len)
+        global_features = self.max_pool(x).squeeze()
+        global_features = self.tanh(self.point_representation(global_features))
         global_features = torch.cat((global_features, labels), dim = -1)
 
         x_mu = self.fc1_enc_mu(global_features)

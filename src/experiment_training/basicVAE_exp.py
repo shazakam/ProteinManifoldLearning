@@ -17,17 +17,17 @@ import datetime
 def BetaExperiment(seq_train_dataloader, seq_val_dataloader, dataset_name):
     latent_dim_suggestion = 16
     hidden_dim_suggestion = 512
-    starting_beta = 0
-    beta_increments = [0.0001, 0.001, 0.01, 0.1]
+    starting_beta = [0.001, 0.01, 0.1, 1]
+    beta_inc= 0 #[0.0001, 0.001, 0.01, 0.1]
 
-    for idx, beta_inc in enumerate(beta_increments):
+    for idx, start_beta in enumerate(starting_beta):
         # Model Checkpoints and saving
         checkpoint_callback = ModelCheckpoint(
         monitor='epoch',
         save_top_k=1,
         mode = 'max',
         dirpath=f'trained_models/{dataset_name}/BVAE/BETA_EXP/',  # Folder to save checkpoints
-        filename=f'{idx}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{starting_beta}_BetaInc{beta_inc}',   # Checkpoint file name
+        filename=f'{idx}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{start_beta}_BetaInc{beta_inc}',   # Checkpoint file name
         ) 
 
         # Define Model and Trainer
@@ -35,7 +35,7 @@ def BetaExperiment(seq_train_dataloader, seq_val_dataloader, dataset_name):
         trainer = pl.Trainer(max_epochs = 100,
             accelerator="auto",
             devices="auto",
-            logger=TensorBoardLogger(save_dir=log_dir, name= f'BVAE_{idx}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{beta_inc}'),
+            logger=TensorBoardLogger(save_dir=log_dir, name= f'BVAE_{idx}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{start_beta}'),
             callbacks=[checkpoint_callback],
             log_every_n_steps = 20
             )
@@ -50,7 +50,7 @@ def BetaExperiment(seq_train_dataloader, seq_val_dataloader, dataset_name):
                             seq_len = max_seq_len, 
                             amino_acids = 21, 
                             hidden_dim = hidden_dim_suggestion,
-                            beta = starting_beta,
+                            beta = start_beta,
                             beta_cycle = 20,
                             beta_epoch_start = 20,
                             beta_increment = beta_inc,

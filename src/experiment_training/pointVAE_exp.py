@@ -13,21 +13,21 @@ import numpy as np
 import pandas as pd
 
 def BetaExperiment(point_train_dataloader, point_val_dataloader, dataset_name):
-    beta_increments = [0.0001, 0.001, 0.01, 0.1]
+    beta_inc = 0 #[0.0001, 0.001, 0.01, 0.1]
     latent_dim = 64
     global_feature_size = 512
     conv_hidden = 8
     hidden_dim = 512
-    starting_beta = 0
+    starting_beta = [0.001, 0.01, 0.1, 1]
 
-    for idx, beta_inc in enumerate(beta_increments):
+    for idx, start_beta in enumerate(starting_beta):
         # Model Checkpoints and saving
         checkpoint_callback = ModelCheckpoint(
         monitor='val_loss_epoch',
         save_top_k=1,
         mode = 'min',
         dirpath=f'trained_models/{dataset_name}/BETA_point_vae/{dataset_name}_BETA_EXP/',  # Folder to save checkpoints
-        filename=f'{idx}_LD{latent_dim}_GF{global_feature_size}_BetaInc{beta_inc}',   # Checkpoint file name
+        filename=f'{idx}_LD{latent_dim}_GF{global_feature_size}_Beta{start_beta}',   # Checkpoint file name
         )
 
         # Define Model and Trainer
@@ -35,7 +35,7 @@ def BetaExperiment(point_train_dataloader, point_val_dataloader, dataset_name):
         trainer = pl.Trainer(max_epochs = 100,
             accelerator="auto",
             devices="auto",
-            logger=TensorBoardLogger(save_dir=log_dir, name= f'PVAE_{idx}_LD{latent_dim}_GF{global_feature_size}_Beta{beta_inc}_CH{conv_hidden}'),
+            logger=TensorBoardLogger(save_dir=log_dir, name= f'PVAE_{idx}_LD{latent_dim}_GF{global_feature_size}_Beta{start_beta}_CH{conv_hidden}'),
             callbacks=[checkpoint_callback],
             log_every_n_steps = 20
             )
@@ -48,7 +48,7 @@ def BetaExperiment(point_train_dataloader, point_val_dataloader, dataset_name):
                             optimizer = optimizer,
                             optimizer_param = optimzer_param,
                             global_feature_size = global_feature_size, 
-                            beta=starting_beta,
+                            beta=start_beta,
                             beta_increment=beta_inc,
                             conv_hidden_dim = conv_hidden,
                             hidden_dim = hidden_dim)

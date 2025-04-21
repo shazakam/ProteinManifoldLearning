@@ -20,16 +20,16 @@ def BetaExperiment(graph_train_dataloader, graph_val_dataloader, dataset_name):
     hidden_dim_suggestion = 512 #
     conv_hidden_dim_suggestion = 16 #
     lr_suggestion = 0.0001 # CHANGE TO FINAL VALUES
-    beta_increments = [0.0001, 0.001, 0.01, 0.1]
-    starting_beta = 0
-    for idx, beta_inc in enumerate(beta_increments):
+    beta_inc = 0 
+    starting_beta = [0.001, 0.01, 0.1, 1]
+    for idx, start_beta in enumerate(starting_beta):
         # Model Checkpoints and saving
         checkpoint_callback = ModelCheckpoint(
         monitor='epoch',
         save_top_k=1,
         mode = 'max',
         dirpath=f'trained_models/{dataset_name}/GVAE/BETA_EXP/',  # Folder to save checkpoints
-        filename=f'{idx}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{starting_beta}_BetaInc{beta_inc}_GCH{conv_hidden_dim_suggestion}_LR{lr_suggestion}',   # Checkpoint file name
+        filename=f'{idx}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{start_beta}_GCH{conv_hidden_dim_suggestion}_LR{lr_suggestion}',   # Checkpoint file name
         ) 
 
         # Define Model and Trainer
@@ -37,7 +37,7 @@ def BetaExperiment(graph_train_dataloader, graph_val_dataloader, dataset_name):
         trainer = pl.Trainer(max_epochs = 100,
             accelerator="auto",
             devices="auto",
-            logger=TensorBoardLogger(save_dir=log_dir, name= f'GraphVAE_{idx}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{starting_beta}_BetaInc{beta_inc}_GCH{conv_hidden_dim_suggestion}_LR{lr_suggestion}'),
+            logger=TensorBoardLogger(save_dir=log_dir, name= f'GraphVAE_{idx}_LD{latent_dim_suggestion}_HD{hidden_dim_suggestion}_Beta{start_beta}_GCH{conv_hidden_dim_suggestion}_LR{lr_suggestion}'),
             callbacks=[checkpoint_callback],
             log_every_n_steps = 20
             )
@@ -51,10 +51,10 @@ def BetaExperiment(graph_train_dataloader, graph_val_dataloader, dataset_name):
                         optimizer = optimizer, 
                         optimizer_param = optimizer_param, 
                         seq_len = 500, 
-                        amino_acids = 20,
+                        amino_acids = 21,
                         conv_hidden_dim = conv_hidden_dim_suggestion, 
                         hidden_dim=hidden_dim_suggestion, 
-                        beta = starting_beta,
+                        beta = start_beta,
                         beta_increment=beta_inc)
 
         
