@@ -1,1 +1,26 @@
-# Manifold Learning on Proteins k
+# Manifold Learning on Proteins
+This project is uses Variational Autoencoders for Manifold Learning on proteins with the express goal being to generate latent spaces which simpler models can use to perform tasks such as protein family classification.
+
+There are three different models:
+- Basic VAE
+- Point VAE
+- Graph VAE
+
+These are defined in the models folder in src.
+The each model has its own defined hyperparameter sweep file outlined in src/training.
+These can be run from terminal with the following command "python -m src.training.*"
+where * is the model sweep file name.
+When run, the program will ask for a dataset input, the dataset used for this project is "Pfam", it will also ask for a name for the sweep folder in which the training logs and trained models will be stored.
+
+
+For the Beta experiments the same procedure can be used but from the src/experiment_training folder using 
+"python -m src.experiment_training.*" Similar to above, it will ask for a dataset, write "Pfam".
+Then it will ask for experiment type. There are two options, the first is to run the Beta experiment with a set model and varying regularisation coefficients and the other is to train a single "final model". 
+To run the beta experiment input "Beta", train the final model input "Final_Model" (this is important as it will save the train and validation datasets used).
+
+The src/dataset_classes contains the pytorch dataset classes that handle data pre-processing and retrieving samples for batches.
+
+utils contains other functions mostly related to data handling.
+
+Notebooks contains different jupyter notebooks used for the project to create graphs and visualisations. Notably, the CLUSTER_ANALYSIS notebook contains the final evaluation of generated latent spaces for the models.
+Beta_Exp_visualisation contains the generation of plots for the beta experiment.
