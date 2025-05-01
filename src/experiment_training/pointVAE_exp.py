@@ -62,7 +62,7 @@ def final_model_training(point_train_dataloader, point_val_dataloader, dataset_n
     global_feature_size = 512
     conv_hidden = 8
     hidden_dim = 512
-    starting_beta = 0.005
+    starting_beta = 0.001
 
     # Model Checkpoints and saving
     checkpoint_callback = ModelCheckpoint(

@@ -38,7 +38,7 @@ def objective(trial, graph_train_dataloader, graph_val_dataloader, dataset_name)
     latent_dim_suggestion = trial.suggest_categorical("latent_dim_suggestion", [16, 32, 64, 128])
     hidden_dim_suggestion = trial.suggest_categorical("hidden_dim_suggestion", [128, 256, 512])
     beta_suggestion = trial.suggest_categorical("beta_suggestion", [0.001, 0.005, 0.01, 0.05, 0.1, 1])
-    conv_hidden_dim_suggestion = trial.suggest_categorical("conv_hidden_suggestion", [32, 64, 96, 128])
+    conv_hidden_dim_suggestion = trial.suggest_categorical("conv_hidden_suggestion", [16, 32, 64, 96, 128])
     lr_suggestion = trial.suggest_float("lr_suggestion",0.0001, 0.001, step = 0.001)
     
 

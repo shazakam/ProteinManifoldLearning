@@ -63,7 +63,7 @@ def BetaExperiment(seq_train_dataloader, seq_val_dataloader, dataset_name):
 def final_model_training(seq_train_dataloader, seq_val_dataloader, dataset_name):
     latent_dim_suggestion = 16
     hidden_dim_suggestion = 512
-    starting_beta = 0.005
+    starting_beta = 0.001
     beta_inc = 0
 
 
